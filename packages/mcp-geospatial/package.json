@@ -1,0 +1,28 @@
+{
+  "name": "mcp-geospatial",
+  "version": "1.0.0",
+  "description": "MCP server for Israeli geospatial data - GovMap, geocoding, cadastral, planning",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [
+    "mcp",
+    "israel",
+    "geospatial",
+    "gis",
+    "govmap",
+    "geocoding",
+    "cadastral",
+    "mapping"
+  ],
+  "author": "David Osher",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "axios": "^1.9.0",
+    "zod": "^3.25.64"
+  }
+}

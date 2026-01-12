@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Israel Geo-Explorer | GovMap MCP</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <div class="sidebar">
+        <div class="header">
+            <h1>Israel Geo-Explorer</h1>
+            <div class="subtitle">Powered by MCP Geospatial Server</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('address')">Address Search</button>
+            <button class="tab-btn" onclick="switchTab('cadastral')">Cadastral (Gush/Helka)</button>
+        </div>
+
+        <!-- Address Tab -->
+        <div id="tab-address" class="input-group">
+            <label>Address to Search</label>
+            <div class="input-wrapper">
+                <input type="text" id="address-input" placeholder="e.g. רוטשילד 1 תל אביב" oninput="handleInput(this)"
+                    onkeydown="handleKey(event)">
+                <div id="address-input-list" class="autocomplete-items"></div>
+            </div>
+            <button class="btn-search" onclick="searchAddress()">Search Location</button>
+        </div>
+
+        <!-- Cadastral Tab -->
+        <div id="tab-cadastral" class="input-group hidden">
+            <label>Gush (Block)</label>
+            <input type="number" id="gush-input" placeholder="e.g. 7422"
+                onkeypress="handleEnter(event, searchCadastral)">
+            <label>Helka (Parcel)</label>
+            <input type="number" id="helka-input" placeholder="e.g. 116"
+                onkeypress="handleEnter(event, searchCadastral)">
+            <button class="btn-search" onclick="searchCadastral()">Find Parcel</button>
+        </div>
+
+        <div class="loader" id="loader"></div>
+
+        <!-- Results -->
+        <div id="result-card" class="result-card">
+            <div class="result-item">
+                <span class="result-label">QUERY</span>
+                <div class="result-value" id="res-query"></div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label">ADDRESS / NAME</span>
+                <div class="result-value" id="res-address"></div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label">COORDINATES (WGS84)</span>
+                <div class="result-value">
+                    <span class="badge" id="res-lat">LAT: -</span>
+                    <span class="badge" id="res-lon">LON: -</span>
+                </div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label">COORDINATES (ITM)</span>
+                <div class="result-value">
+                    <span class="badge" id="res-x">X: -</span>
+                    <span class="badge" id="res-y">Y: -</span>
+                </div>
+            </div>
+
+            <div id="extra-data"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

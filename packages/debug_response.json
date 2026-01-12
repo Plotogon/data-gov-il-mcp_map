@@ -1,0 +1,23 @@
+{
+  "resultsCount": 52,
+  "results": [
+    {
+      "id": "parcel|LAYER_PARCEL_ALL|90924",
+      "text": "גוש 7777 חלקה 12",
+      "type": "parcel",
+      "score": 16032.719,
+      "shape": "POINT(3889483.7219863776 3793468.137321589)",
+      "data": {}
+    }
+  ],
+  "aggregations": [
+    {
+      "key": "parcel",
+      "count": 51
+    },
+    {
+      "key": "block",
+      "count": 1
+    }
+  ]
+}
