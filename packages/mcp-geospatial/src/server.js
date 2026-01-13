@@ -11,6 +11,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { registerGeocodeTool } from './tools/govmap/geocode.js';
 import { registerCadastralTool } from './tools/govmap/cadastral.js';
 import { registerAutocompleteTool } from './tools/govmap/autocomplete.js';
+import { registerConverterTool } from './tools/govmap/converter.js';
 
 /**
  * Create and configure MCP-Geospatial server
@@ -19,7 +20,7 @@ function createGeospatialServer() {
     const server = new McpServer({
         name: 'mcp-geospatial',
         version: '1.0.0',
-        description: 'Israeli Geospatial Data - GovMap, Geocoding, Cadastral'
+        description: 'Israeli Geospatial Data - GovMap, Geocoding, Cadastral, Planner'
     });
 
     console.error('🗺️ MCP-Geospatial Server starting...');
@@ -38,6 +39,10 @@ function createGeospatialServer() {
     // Register cadastral tool
     registerCadastralTool(server);
     console.error('  ✅ search_cadastral - Gush/Helka parcel search');
+
+    // Register converter tool
+    registerConverterTool(server);
+    console.error('  ✅ convert_coordinates - ITM ↔ WGS84');
 
     // Register autocomplete tool
     registerAutocompleteTool(server);

@@ -158,7 +158,7 @@ export function getCourtsByType(type) {
         case 'district':
             return COURTS.district;
         case 'magistrate':
-            return COURTS.magistrate;
+            return [COURTS.magistrate];
         case 'religious':
             return Object.values(COURTS.religious);
         case 'specialized':

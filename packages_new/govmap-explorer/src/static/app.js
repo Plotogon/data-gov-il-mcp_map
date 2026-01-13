@@ -1,167 +1,85 @@
 // Initialize map
-const map = L.map('map', {
-    zoomControl: false // We'll add it in custom position
-}).setView([32.0853, 34.7818], 13); // Default to Tel Aviv
+const map = L.map('map').setView([32.0853, 34.7818], 13); // Default to Tel Aviv
 
-// Add zoom control to bottom-right
-L.control.zoom({
-    position: 'bottomright'
-}).addTo(map);
-
-// Add Light tiles (CartoDB Positron)
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+// --- Base Maps ---
+const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap, © CARTO',
     subdomains: 'abcd',
     maxZoom: 20
-}).addTo(map);
+});
 
-let currentMarker = null;
+const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap, © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20
+});
 
-// ===== Layer Control =====
-const mapLayers = {};
+// Official GovMap Tiles (XYZ)
+const govMapHeb = L.tileLayer('https://cdnil.govmap.gov.il/xyz/heb/{z}/{x}/{y}.png', {
+    attribution: '© GovMap (Survey of Israel)',
+    maxZoom: 20
+});
 
-// GovMap WMS base URL
-const GOVMAP_WMS = 'https://ags.govmap.gov.il/proxy/proxy.ashx?https://gisn.tel-aviv.gov.il/arcgis/services/IView2WMS/MapServer/WMSServer';
+const govMapEng = L.tileLayer('https://cdnil.govmap.gov.il/xyz/eng/{z}/{x}/{y}.png', {
+    attribution: '© GovMap (Survey of Israel)',
+    maxZoom: 20
+});
 
-// Layer definitions (using OpenStreetMap data via overpass or placeholder tiles)
-const layerConfigs = {
-    cadastral: {
-        name: 'Cadastral',
-        // GovMap cadastral layer (approximate)
-        url: 'https://ags.govmap.gov.il/proxy/proxy.ashx?https://ags.govmap.gov.il/arcgis/rest/services/AdministrativeUnitsWMS/MapServer/tile/{z}/{y}/{x}',
-        options: { opacity: 0.6, maxZoom: 20 }
-    },
-    schools: {
-        name: 'Schools',
-        // Placeholder - will show markers loaded from data.gov.il
-        type: 'markers',
-        icon: '🏫',
-        color: '#22c55e'
-    },
-    hospitals: {
-        name: 'Hospitals',
-        type: 'markers',
-        icon: '🏥',
-        color: '#ef4444'
-    },
-    police: {
-        name: 'Police',
-        type: 'markers',
-        icon: '👮',
-        color: '#3b82f6'
-    },
-    fire: {
-        name: 'Fire Stations',
-        type: 'markers',
-        icon: '🚒',
-        color: '#f97316'
-    },
-    bus: {
-        name: 'Bus Stops',
-        type: 'markers',
-        icon: '🚌',
-        color: '#8b5cf6'
-    }
+// --- Overlays (WMS) ---
+const parcelsWms = L.tileLayer.wms('https://open.govmap.gov.il/geoserver/opendata/wms', {
+    layers: 'PARCEL_ALL',
+    format: 'image/png',
+    transparent: true,
+    attribution: '© Survey of Israel'
+});
+
+const tabaWms = L.tileLayer.wms('https://open.govmap.gov.il/geoserver/opendata/wms', {
+    layers: 'taba_tso_zones',
+    format: 'image/png',
+    transparent: true,
+    opacity: 0.6,
+    attribution: '© Planning Admin'
+});
+
+const schoolsWms = L.tileLayer.wms('https://open.govmap.gov.il/geoserver/opendata/wms', {
+    layers: 'layer_217362', // Schools
+    format: 'image/png',
+    transparent: true,
+    attribution: '© Ministry of Education'
+});
+
+const hospitalsWms = L.tileLayer.wms('https://open.govmap.gov.il/geoserver/opendata/wms', {
+    layers: 'emergancy_hospitals', // Hospitals
+    format: 'image/png',
+    transparent: true,
+    attribution: '© Ministry of Health'
+});
+
+// Add Default Layers
+cartoLight.addTo(map);
+
+// Move Zoom Control to Bottom-Right
+map.zoomControl.remove();
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Layer Control
+const baseMaps = {
+    "Map (Light)": cartoLight,
+    "Map (Dark)": cartoDark,
+    "GovMap (Hebrew)": govMapHeb,
+    "GovMap (English)": govMapEng
 };
 
-// Toggle layer panel collapse
-function toggleLayerPanel() {
-    const control = document.getElementById('layer-control');
-    control.classList.toggle('collapsed');
-}
+const overlayMaps = {
+    "Gush/Helka (Parcels)": parcelsWms,
+    "Planning (Taba)": tabaWms,
+    "Schools (בתי ספר)": schoolsWms,
+    "Hospitals (בתי חולים)": hospitalsWms
+};
 
-// Toggle individual layer
-async function toggleLayer(layerId) {
-    const checkbox = document.getElementById(`layer-${layerId}`);
-    const isEnabled = checkbox.checked;
+L.control.layers(baseMaps, overlayMaps, { position: 'bottomright' }).addTo(map);
 
-    if (isEnabled) {
-        // Add layer
-        await addLayer(layerId);
-    } else {
-        // Remove layer
-        removeLayer(layerId);
-    }
-}
-
-// Add a layer to the map
-async function addLayer(layerId) {
-    const config = layerConfigs[layerId];
-    if (!config) return;
-
-    if (config.type === 'markers') {
-        // Create marker layer group
-        const layerGroup = L.layerGroup();
-
-        // Load data for this layer type
-        try {
-            const markers = await loadLayerData(layerId);
-            markers.forEach(m => {
-                const icon = L.divIcon({
-                    html: `<div style="font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${config.icon}</div>`,
-                    className: 'custom-marker',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
-                L.marker([m.lat, m.lon], { icon })
-                    .bindPopup(`<b>${m.name}</b><br>${m.address || ''}`)
-                    .addTo(layerGroup);
-            });
-        } catch (e) {
-            console.warn(`Layer ${layerId} data not available:`, e.message);
-            // Add placeholder message
-            const center = map.getCenter();
-            L.popup()
-                .setLatLng(center)
-                .setContent(`⚠️ ${config.name} data requires API integration`)
-                .openOn(map);
-        }
-
-        layerGroup.addTo(map);
-        mapLayers[layerId] = layerGroup;
-    } else if (config.url) {
-        // Tile layer
-        const layer = L.tileLayer(config.url, config.options);
-        layer.addTo(map);
-        mapLayers[layerId] = layer;
-    }
-}
-
-// Remove layer from map
-function removeLayer(layerId) {
-    if (mapLayers[layerId]) {
-        map.removeLayer(mapLayers[layerId]);
-        delete mapLayers[layerId];
-    }
-}
-
-// Load marker data for layer from API
-async function loadLayerData(layerId) {
-    try {
-        // Get current map bounds for geographic filtering
-        const bounds = map.getBounds();
-        const params = new URLSearchParams({
-            north: bounds.getNorth(),
-            south: bounds.getSouth(),
-            east: bounds.getEast(),
-            west: bounds.getWest()
-        });
-
-        const response = await fetch(`/api/layers/${layerId}?${params}`);
-        const result = await response.json();
-
-        if (result.success && result.data) {
-            console.log(`✅ Loaded ${result.count} items for layer ${layerId}`);
-            return result.data;
-        }
-
-        console.warn(`Layer ${layerId} returned no data`);
-        return [];
-    } catch (error) {
-        console.error(`Error loading layer ${layerId}:`, error);
-        return [];
-    }
-}
+let currentMarker = null;
 
 // --- Autocomplete Logic ---
 let currentFocus = -1;
@@ -931,149 +849,3 @@ map.on('click', function (e) {
         .setContent(`<div style="text-align:center;"><strong>Selected Location</strong><br>Lat: ${lat.toFixed(5)}<br>Lon: ${lon.toFixed(5)}<br><hr style="margin: 5px 0; opacity: 0.2"><small>Address lookup requires<br>API authentication.</small></div>`)
         .openOn(map);
 });
-
-// ===== Legal Tab Functions =====
-
-// Switch between legal sub-tabs (courts, police, fines)
-function switchLegalTab(tabName) {
-    const tabs = ['courts', 'police', 'fines'];
-    const container = document.getElementById('cat-judicial');
-
-    // Hide all sub-tabs
-    tabs.forEach(t => {
-        const el = document.getElementById(`legal-${t}`);
-        if (el) el.classList.add('hidden');
-    });
-
-    // Show selected tab
-    const selected = document.getElementById(`legal-${tabName}`);
-    if (selected) selected.classList.remove('hidden');
-
-    // Update tab link states
-    const tabLinks = container.querySelectorAll('.sub-tabs .tab-link');
-    tabLinks.forEach((link, i) => {
-        if (tabs[i] === tabName) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
-    });
-}
-
-// Get police statistics
-async function getPoliceStats() {
-    const category = document.getElementById('police-category').value;
-
-    showLoader(true);
-    hideMarkdownResult();
-
-    try {
-        // Add 5 second timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch('/api/judicial/police', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        const result = await response.json();
-
-        if (result.content) {
-            showMarkdownResult(result.content);
-        } else if (result.error) {
-            alert(`Error: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Police stats error:', error);
-        // Fallback: show info message
-        showMarkdownResult([
-            '🚔 **סטטיסטיקת משטרת ישראל**',
-            '',
-            `**קטגוריה:** ${category}`,
-            '',
-            '> ⚠️ שרת mcp-legal לא מחובר.',
-            '',
-            '**מידע זמין:**',
-            '- סטטיסטיקת פשיעה (5 שנים)',
-            '- עבירות תנועה',
-            '- תאונות דרכים',
-            '',
-            '**מקור נתונים:** data.gov.il',
-            '',
-            '---',
-            '',
-            '💡 לחיפוש נתונים השתמשו ב-`find_datasets("משטרה פשע")`'
-        ].join('\n'));
-    } finally {
-        showLoader(false);
-    }
-}
-
-// Get fines information
-async function getFinesInfo() {
-    const fineType = document.getElementById('fine-type').value;
-
-    showLoader(true);
-    hideMarkdownResult();
-
-    try {
-        // Add 5 second timeout to prevent hanging  
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch('/api/judicial/fines', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fine_type: fineType }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        const result = await response.json();
-
-        if (result.content) {
-            showMarkdownResult(result.content);
-        } else if (result.error) {
-            alert(`Error: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Fines info error:', error);
-        // Fallback: show helpful information directly
-        showMarkdownResult([
-            '💰 **מידע על קנסות בישראל**',
-            '',
-            `**סוג:** ${fineType === 'all' ? 'כל הסוגים' : fineType}`,
-            '',
-            '## אמצעי תשלום',
-            '',
-            '### 🚗 קנסות תעבורה (משטרה)',
-            '- **אונליין:** [gov.il](https://www.gov.il/he/service/paying_traffic_fines)',
-            '- **טלפון:** *5765',
-            '',
-            '### 🅿️ קנסות חניה (עירייה)',
-            '- **תל אביב:** [irparking.co.il](https://www.irparking.co.il)',
-            '- **ירושלים:** [jerusalem.muni.il](https://www.jerusalem.muni.il)',
-            '',
-            '### ⚖️ קנסות בית משפט',
-            '- **אונליין:** [govextra.gov.il](https://govextra.gov.il)',
-            '',
-            '## הגשת ערעור',
-            '',
-            '1. יש להגיש תוך 30 יום',
-            '2. [טופס ערעור](https://www.gov.il/he/service/appeal_traffic_report)',
-            '',
-            '---',
-            '',
-            '⚠️ לא ניתן לשלוף נתונים אישיים דרך API'
-        ].join('\n'));
-    } finally {
-        showLoader(false);
-    }
-}
-

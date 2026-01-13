@@ -20,57 +20,6 @@
 <body>
     <div id="map"></div>
 
-    <!-- Layer Control Panel (bottom-right) -->
-    <div id="layer-control" class="layer-control">
-        <div class="layer-header" onclick="toggleLayerPanel()">
-            <span>🗺️</span>
-            <span data-i18n="layers">שכבות</span>
-            <span id="layer-toggle-icon">▲</span>
-        </div>
-        <div id="layer-list" class="layer-list">
-            <label class="layer-item">
-                <input type="checkbox" id="layer-cadastral" onchange="toggleLayer('cadastral')">
-                <span>📐</span>
-                <span data-i18n="layer_cadastral">גוש/חלקה</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-schools" onchange="toggleLayer('schools')">
-                <span>🏫</span>
-                <span data-i18n="layer_schools">בתי ספר</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-hospitals" onchange="toggleLayer('hospitals')">
-                <span>🏥</span>
-                <span data-i18n="layer_hospitals">בתי חולים</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-police" onchange="toggleLayer('police')">
-                <span>👮</span>
-                <span data-i18n="layer_police">תחנות משטרה</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-fire" onchange="toggleLayer('fire')">
-                <span>🚒</span>
-                <span data-i18n="layer_fire">תחנות כיבוי</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-bus" onchange="toggleLayer('bus')">
-                <span>🚌</span>
-                <span data-i18n="layer_bus">תחנות אוטובוס</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-synagogues" onchange="toggleLayer('synagogues')">
-                <span>🕍</span>
-                <span data-i18n="layer_synagogues">בתי כנסת</span>
-            </label>
-            <label class="layer-item">
-                <input type="checkbox" id="layer-parkride" onchange="toggleLayer('parkride')">
-                <span>🅿️</span>
-                <span data-i18n="layer_parkride">חנה וסע</span>
-            </label>
-        </div>
-    </div>
-
     <div class="sidebar">
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -176,55 +125,17 @@
             </div>
         </div>
 
-        <!-- === LEGAL CATEGORY (Courts + Police + Fines) === -->
+        <!-- === JUDICIAL CATEGORY === -->
         <div id="cat-judicial" class="category-group hidden">
-            <div class="sub-tabs">
-                <button class="tab-link active" onclick="switchLegalTab('courts')" data-i18n="tab_courts">בתי
-                    משפט</button>
-                <button class="tab-link" onclick="switchLegalTab('police')" data-i18n="tab_police">משטרה</button>
-                <button class="tab-link" onclick="switchLegalTab('fines')" data-i18n="tab_fines">קנסות</button>
-            </div>
-
-            <!-- Courts Sub-Tab -->
-            <div id="legal-courts" class="input-group">
-                <label data-i18n="lbl_court">מידע על בתי משפט</label>
-                <select id="court-select"
-                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
-                    <option value="supreme" data-i18n="opt_supreme">בית המשפט העליון</option>
-                    <option value="district" data-i18n="opt_district">בתי המשפט המחוזיים (רשימה)</option>
-                    <option value="magistrate" data-i18n="opt_magistrate">בתי משפט השלום (כללי)</option>
-                </select>
-                <button class="btn-search" style="margin-top:10px" onclick="searchCourt()"
-                    data-i18n="btn_court_info">קבל מידע</button>
-            </div>
-
-            <!-- Police Sub-Tab -->
-            <div id="legal-police" class="input-group hidden">
-                <label data-i18n="lbl_police_stats">סטטיסטיקת משטרה</label>
-                <select id="police-category"
-                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
-                    <option value="all" data-i18n="opt_police_all">הכל</option>
-                    <option value="crimes" data-i18n="opt_police_crimes">פשיעה</option>
-                    <option value="traffic" data-i18n="opt_police_traffic">עבירות תנועה</option>
-                    <option value="accidents" data-i18n="opt_police_accidents">תאונות דרכים</option>
-                </select>
-                <button class="btn-search" style="margin-top:10px" onclick="getPoliceStats()"
-                    data-i18n="btn_police_stats">🚔 קבל סטטיסטיקה</button>
-            </div>
-
-            <!-- Fines Sub-Tab -->
-            <div id="legal-fines" class="input-group hidden">
-                <label data-i18n="lbl_fines">מידע על קנסות</label>
-                <select id="fine-type"
-                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
-                    <option value="all" data-i18n="opt_fine_all">כל סוגי הקנסות</option>
-                    <option value="traffic" data-i18n="opt_fine_traffic">קנסות תעבורה</option>
-                    <option value="parking" data-i18n="opt_fine_parking">קנסות חניה</option>
-                    <option value="court" data-i18n="opt_fine_court">קנסות בית משפט</option>
-                </select>
-                <button class="btn-search" style="margin-top:10px" onclick="getFinesInfo()"
-                    data-i18n="btn_fines_info">💰 מידע על תשלום וערעור</button>
-            </div>
+            <label data-i18n="lbl_court">מידע על בתי משפט</label>
+            <select id="court-select"
+                style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
+                <option value="supreme" data-i18n="opt_supreme">בית המשפט העליון</option>
+                <option value="district" data-i18n="opt_district">בתי המשפט המחוזיים (רשימה)</option>
+                <option value="magistrate" data-i18n="opt_magistrate">בתי משפט השלום (כללי)</option>
+            </select>
+            <button class="btn-search" style="margin-top:10px" onclick="searchCourt()" data-i18n="btn_court_info">קבל
+                מידע</button>
         </div>
 
         <div class="loader" id="loader"></div>
@@ -268,7 +179,7 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <script src="app-i18n.js"></script>
-    <script defer src="app.js?v=2.0.1"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>

@@ -9,6 +9,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 // Data.gov.il tools
 import { registerFindDatasetsTool } from './tools/data-gov/find.js';
+import { registerGetDatasetInfoTool } from './tools/data-gov/dataset_info.js';
+import { registerSearchRecordsTool } from './tools/data-gov/search.js';
+import { registerTagsTool, registerSearchTagsTool } from './tools/data-gov/tags.js';
+import { registerOrganizationTools } from './tools/data-gov/organizations.js';
 
 // Transport tools
 import { registerTransportStatisticsTool } from './tools/transport/transport-stats.js';
@@ -30,9 +34,24 @@ function createGovServer() {
     console.error('');
     console.error('📚 Data.gov.il tools:');
 
-    // Register data.gov.il tools
+    // Register ALL data.gov.il tools
     registerFindDatasetsTool(server);
     console.error('  ✅ find_datasets');
+
+    registerGetDatasetInfoTool(server);
+    console.error('  ✅ get_dataset_info');
+
+    registerSearchRecordsTool(server);
+    console.error('  ✅ search_records');
+
+    registerTagsTool(server);
+    console.error('  ✅ list_available_tags');
+
+    registerSearchTagsTool(server);
+    console.error('  ✅ search_tags');
+
+    registerOrganizationTools(server);
+    console.error('  ✅ list_organizations & get_organization_info');
 
     console.error('');
     console.error('🚌 Transport tools:');
@@ -48,10 +67,9 @@ function createGovServer() {
 
     console.error('');
     console.error('🎯 MCP-Gov server ready!');
-    console.error(`   Total tools: 3`);
+    console.error(`   Total tools: 9`);
     console.error('');
-    console.error('   Note: Additional data.gov.il tools available in legacy server');
-    console.error('   This is a simplified version with most essential tools');
+    console.error('   All core data.gov.il tools are now active');
 
     return server;
 }

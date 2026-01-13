@@ -1,0 +1,15 @@
+{
+    "name": "govmap-explorer",
+    "version": "1.0.0",
+    "description": "Web interface for exploring GovMap MCP server capabilities",
+    "main": "src/server.js",
+    "type": "module",
+    "scripts": {
+        "start": "node src/server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "@modelcontextprotocol/sdk": "^1.13.0",
+        "cors": "^2.8.5"
+    }
+}
