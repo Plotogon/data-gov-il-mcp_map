@@ -15,7 +15,7 @@ const POLICE_DATASETS = {
     crimes: {
         name: 'crime-statistics',
         description: 'סטטיסטיקת פשיעה - Criminal Statistics',
-        searchTerms: ['פשיעה', 'עבירות', 'crime', 'פלילי']
+        searchTerms: ['משטרה', 'פשע', 'עבירות', 'police', 'crime']
     },
     traffic: {
         name: 'traffic-violations',
@@ -25,7 +25,7 @@ const POLICE_DATASETS = {
     accidents: {
         name: 'traffic-accidents',
         description: 'תאונות דרכים - Traffic Accidents',
-        searchTerms: ['תאונות', 'accidents', 'נפגעים']
+        searchTerms: ['תאונות', 'דרכים', 'accidents']
     }
 };
 
@@ -102,21 +102,7 @@ function formatPoliceStatistics(category, datasets, records = null) {
         ''
     ];
 
-    // Check if we have any results
-    const hasResults = datasets && datasets.results && datasets.results.length > 0;
-
-    if (!hasResults && category === 'traffic') {
-        // Special message for traffic category - no public data available
-        lines.push('> ⚠️ **נתוני עבירות תנועה (דוחות) אינם מפורסמים באופן פומבי**');
-        lines.push('');
-        lines.push('מידע על דוחות וקנסות זמין רק באמצעות:');
-        lines.push('- 🔗 [אתר משטרת ישראל](https://www.police.gov.il)');
-        lines.push('- 🔗 [gov.il - תשלום קנסות](https://www.gov.il/he/service/paying_traffic_fines)');
-        lines.push('');
-        lines.push('**נתונים הקשורים לתחבורה:**');
-        lines.push('- תאונות דרכים → בחרו קטגוריה "accidents"');
-        lines.push('- סטטיסטיקת פשיעה → בחרו קטגוריה "crimes"');
-    } else if (hasResults) {
+    if (datasets && datasets.results) {
         datasets.results.forEach((ds, i) => {
             lines.push(`### ${i + 1}. ${ds.title}`);
             lines.push(`- **ID:** ${ds.name}`);
@@ -127,12 +113,8 @@ function formatPoliceStatistics(category, datasets, records = null) {
                 const activeResources = ds.resources.filter(r => r.datastore_active);
                 if (activeResources.length > 0) {
                     lines.push(`- **Searchable Resources:** ${activeResources.length}`);
-                    lines.push('');
-                    activeResources.slice(0, 5).forEach(r => {
-                        // Format: - [FORMAT] Name (ID: xxx) - enables Preview button in frontend
-                        const format = r.format || 'DATA';
-                        const name = r.name || r.description || 'Dataset';
-                        lines.push(`- [${format}] ${name} (ID: ${r.id})`);
+                    activeResources.slice(0, 3).forEach(r => {
+                        lines.push(`  - \`${r.id}\` - ${r.name || r.format}`);
                     });
                 }
             }

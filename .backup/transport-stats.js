@@ -129,17 +129,14 @@ export function registerTransportStatisticsTool(server) {
                 .describe('Year for statistics'),
             resource_id: z.string().optional().describe('Specific Resource ID to deep dive/preview'),
             limit: z.number().optional().describe('Limit rows for preview'),
-            offset: z.number().optional().describe('Offset rows for preview'),
-            q: z.string().optional().describe('Full-text search query across all fields in the dataset')
+            offset: z.number().optional().describe('Offset rows for preview')
         },
-        async ({ category, year, resource_id, limit = 100, offset = 0, q }) => {
+        async ({ category, year, resource_id, limit = 100, offset = 0 }) => {
             try {
                 // === UNIVERSAL DEEP DIVE ===
                 if (resource_id) {
                     try {
-                        // Build URL with optional search query
-                        const qParam = q ? `&q=${encodeURIComponent(q)}` : '';
-                        const resourceUrl = `https://data.gov.il/api/3/action/datastore_search?resource_id=${resource_id}&limit=${limit}&offset=${offset}${qParam}`;
+                        const resourceUrl = `https://data.gov.il/api/3/action/datastore_search?resource_id=${resource_id}&limit=${limit}&offset=${offset}`;
 
                         console.error(`⬇️ Fetching universal deep dive data from: ${resourceUrl}`);
                         const response = await axios.get(resourceUrl);

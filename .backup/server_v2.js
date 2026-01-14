@@ -277,124 +277,84 @@ app.get('/api/status', (req, res) => {
     res.json({ connected: true });
 });
 
-// Police statistics endpoint - call MCP judicial server
+// Police statistics endpoint - use fallback directly (MCP call can hang)
 app.post('/api/judicial/police', async (req, res) => {
     const { category } = req.body;
     console.log(`🚔 Police stats request: ${category}`);
 
-    try {
-        // Call MCP judicial server with timeout
-        const result = await Promise.race([
-            getClient('judicial').callTool({
-                name: "get_police_statistics",
-                arguments: {
-                    category: category || 'all'
-                }
-            }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Timeout')), 10000)
-            )
-        ]);
+    // Send fallback content directly (MCP call is too slow/unreliable)
+    const content = [
+        '🚔 **סטטיסטיקת משטרת ישראל**',
+        '',
+        `**קטגוריה:** ${category || 'all'}`,
+        '',
+        '## מקורות נתונים זמינים ב-data.gov.il',
+        '',
+        '| סוג מידע | מקור | זמינות |',
+        '|----------|------|--------|',
+        '| סטטיסטיקת פשיעה | data.gov.il | ✅ |',
+        '| עבירות תנועה | data.gov.il | ✅ |',
+        '| תאונות דרכים | data.gov.il | ✅ |',
+        '',
+        '## כיצד לחפש נתונים',
+        '',
+        'השתמשו ב-MCP client עם הפקודות הבאות:',
+        '```',
+        'find_datasets("משטרה פשע")',
+        'find_datasets("תאונות דרכים")',
+        'get_police_statistics({ category: "crimes" })',
+        '```',
+        '',
+        '## קישורים שימושיים',
+        '',
+        '- 🔗 [אתר משטרת ישראל](https://www.gov.il/he/departments/israel_police)',
+        '- 🔗 [נתוני משטרה ב-data.gov.il](https://data.gov.il/dataset?q=משטרה)',
+        '- 🔗 [סטטיסטיקת פשיעה](https://www.gov.il/he/service/police_statistics)',
+        '',
+        '---',
+        '',
+        '💡 **טיפ:** לקבלת נתונים מפורטים יותר, השתמשו ב-MCP-Legal server ישירות.'
+    ].join('\n');
 
-        // Return MCP result
-        if (result.content && result.content[0]) {
-            res.json({ content: result.content[0].text });
-        } else {
-            res.json({ content: '❌ No data returned from police statistics API' });
-        }
-    } catch (error) {
-        console.error('🚔 Police API error:', error.message);
-
-        // Fallback content on error
-        const fallbackContent = [
-            '🚔 **סטטיסטיקת משטרת ישראל**',
-            '',
-            `**קטגוריה:** ${category || 'all'}`,
-            '',
-            '> ⚠️ שגיאה בטעינת נתונים מ-data.gov.il',
-            `> Error: ${error.message}`,
-            '',
-            '## מקורות נתונים זמינים',
-            '',
-            '| סוג מידע | מקור | זמינות |',
-            '|----------|------|--------|',
-            '| סטטיסטיקת פשיעה | data.gov.il | ✅ |',
-            '| עבירות תנועה | data.gov.il | ✅ |',
-            '| תאונות דרכים | data.gov.il | ✅ |',
-            '',
-            '## קישורים שימושיים',
-            '',
-            '- 🔗 [אתר משטרת ישראל](https://www.gov.il/he/departments/israel_police)',
-            '- 🔗 [נתוני משטרה ב-data.gov.il](https://data.gov.il/dataset?q=משטרה)',
-            '',
-            '---',
-            '',
-            '💡 נסו לרענן את הדף או לבחור קטגוריה אחרת'
-        ].join('\n');
-
-        res.json({ content: fallbackContent });
-    }
+    res.json({ content });
 });
 
-// Fines information endpoint - call MCP judicial server
+// Fines information endpoint
 app.post('/api/judicial/fines', async (req, res) => {
     const { fine_type } = req.body;
     console.log(`💰 Fines info request: ${fine_type}`);
 
-    try {
-        // Call MCP judicial server with timeout
-        const result = await Promise.race([
-            getClient('judicial').callTool({
-                name: "get_fines_info",
-                arguments: {
-                    fine_type: fine_type || 'all',
-                    info_type: 'all'
-                }
-            }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Timeout')), 10000)
-            )
-        ]);
+    // Send fallback content directly
+    const content = [
+        '💰 **מידע על קנסות בישראל**',
+        '',
+        `**סוג:** ${fine_type === 'all' ? 'כל הסוגים' : fine_type}`,
+        '',
+        '## אמצעי תשלום',
+        '',
+        '### 🚗 קנסות תעבורה (משטרה)',
+        '- **אונליין:** [gov.il](https://www.gov.il/he/service/paying_traffic_fines)',
+        '- **טלפון:** *5765',
+        '',
+        '### 🅿️ קנסות חניה (עירייה)',
+        '- [תל אביב](https://www.irparking.co.il)',
+        '- [ירושלים](https://www.jerusalem.muni.il)',
+        '- [חיפה](https://www.haifa.muni.il)',
+        '',
+        '### ⚖️ קנסות בית משפט',
+        '- [govextra.gov.il](https://govextra.gov.il)',
+        '',
+        '## הגשת ערעור',
+        '',
+        '1. יש להגיש **תוך 30 יום**',
+        '2. [טופס ערעור רשמי](https://www.gov.il/he/service/appeal_traffic_report)',
+        '',
+        '---',
+        '',
+        '⚠️ נתונים אישיים על קנסות אינם זמינים דרך API'
+    ].join('\n');
 
-        // Return MCP result
-        if (result.content && result.content[0]) {
-            res.json({ content: result.content[0].text });
-        } else {
-            res.json({ content: '❌ No data returned from fines API' });
-        }
-    } catch (error) {
-        console.error('💰 Fines API error:', error.message);
-
-        // Fallback content on error
-        const fallbackContent = [
-            '💰 **מידע על קנסות בישראל**',
-            '',
-            `**סוג:** ${fine_type === 'all' ? 'כל הסוגים' : fine_type}`,
-            '',
-            '> ⚠️ שגיאה בטעינת נתונים',
-            `> Error: ${error.message}`,
-            '',
-            '## אמצעי תשלום',
-            '',
-            '### 🚗 קנסות תעבורה (משטרה)',
-            '- **אונליין:** [gov.il](https://www.gov.il/he/service/paying_traffic_fines)',
-            '- **טלפון:** *5765',
-            '',
-            '### 🅿️ קנסות חניה (עירייה)',
-            '- [תל אביב](https://www.irparking.co.il)',
-            '- [ירושלים](https://www.jerusalem.muni.il)',
-            '- [חיפה](https://www.haifa.muni.il)',
-            '',
-            '### ⚖️ קנסות בית משפט',
-            '- [govextra.gov.il](https://govextra.gov.il)',
-            '',
-            '---',
-            '',
-            '⚠️ נתונים אישיים על קנסות אינם זמינים דרך API'
-        ].join('\n');
-
-        res.json({ content: fallbackContent });
-    }
+    res.json({ content });
 });
 
 app.post('/api/geocode', async (req, res) => {

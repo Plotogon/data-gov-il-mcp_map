@@ -70,7 +70,10 @@ const translations = {
         opt_fine_traffic: "קנסות תעבורה",
         opt_fine_parking: "קנסות חניה",
         opt_fine_court: "קנסות בית משפט",
-        btn_fines_info: "💰 מידע על תשלום וערעור"
+        btn_fines_info: "💰 מידע על תשלום וערעור",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 חיפוש בכל הנתונים"
     },
     en: {
         title: "Public Verification Interface",
@@ -147,7 +150,10 @@ const translations = {
         opt_fine_traffic: "Traffic Fines",
         opt_fine_parking: "Parking Fines",
         opt_fine_court: "Court Fines",
-        btn_fines_info: "💰 Payment & Appeal Info"
+        btn_fines_info: "💰 Payment & Appeal Info",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 Search entire dataset"
     },
     ru: {
         title: "Интерфейс Общественной Верификации",
@@ -224,7 +230,10 @@ const translations = {
         opt_fine_traffic: "Дорожные штрафы",
         opt_fine_parking: "Парковочные штрафы",
         opt_fine_court: "Судебные штрафы",
-        btn_fines_info: "💰 Оплата и обжалование"
+        btn_fines_info: "💰 Оплата и обжалование",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 Поиск по всему датасету"
     },
     ar: {
         title: "واجهة التحقق العامة",
@@ -290,7 +299,10 @@ const translations = {
         opt_fine_traffic: "غرامات المرور",
         opt_fine_parking: "غرامات الوقوف",
         opt_fine_court: "غرامات المحكمة",
-        btn_fines_info: "💰 معلومات الدفع والاستئناف"
+        btn_fines_info: "💰 معلومات الدفع والاستئناف",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 البحث في جميع البيانات"
     },
     es: {
         title: "Interfaz de Verificación Pública",
@@ -356,7 +368,10 @@ const translations = {
         opt_fine_traffic: "Multas de tráfico",
         opt_fine_parking: "Multas de aparcamiento",
         opt_fine_court: "Multas judiciales",
-        btn_fines_info: "💰 Pago y apelación"
+        btn_fines_info: "💰 Pago y apelación",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 Buscar en todo el dataset"
     },
     fr: {
         title: "Interface de Vérification Publique",
@@ -422,7 +437,10 @@ const translations = {
         opt_fine_traffic: "Amendes routières",
         opt_fine_parking: "Amendes stationnement",
         opt_fine_court: "Amendes tribunal",
-        btn_fines_info: "💰 Paiement et appel"
+        btn_fines_info: "💰 Paiement et appel",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 Rechercher dans toutes les données"
     },
     am: {
         title: "የህዝብ ማረጋገጫ በይነገጽ",
@@ -488,6 +506,9 @@ const translations = {
         opt_fine_traffic: "የትራፊክ ቅጣቶች",
         opt_fine_parking: "የፓርኪንግ ቅጣቶች",
         opt_fine_court: "የፍርድ ቤት ቅጣቶች",
-        btn_fines_info: "💰 ክፍያ እና አቤቱታ"
+        btn_fines_info: "💰 ክፍያ እና አቤቱታ",
+
+        // Preview Modal
+        ph_search_dataset: "🔍 በሁሉም መረጃዎች ይፍለጉ"
     }
 };

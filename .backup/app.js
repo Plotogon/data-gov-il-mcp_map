@@ -510,19 +510,6 @@ function displayMarkdownResult(text) {
     document.getElementById('result-card').classList.remove('visible'); // Hide map card
 }
 
-// Helper functions for police/fines tabs
-function showMarkdownResult(text) {
-    displayMarkdownResult(text);
-}
-
-function hideMarkdownResult() {
-    const container = document.getElementById('markdown-result');
-    if (container) {
-        container.innerHTML = '';
-        container.classList.add('hidden');
-    }
-}
-
 // Store active category for "Back" functionality
 let activeTransportCategory = 'all';
 
@@ -579,69 +566,38 @@ function closePreviewModal() {
     if (overlay) overlay.remove();
 }
 
-// === Server-Side Search ===
-let searchDebounceTimer = null;
-let currentSearchResourceId = null;
-let currentSearchResourceName = '';
-let currentSearchTotal = 0;
-const ROWS_PER_PAGE = 100;
+// Client-side table filter
+function filterPreviewTable(query) {
+    const container = document.querySelector('.preview-content');
+    if (!container) return;
 
-// Helper to get translation for current language
-function getTranslation(key) {
-    const t = translations[currentLang] || translations['en'];
-    return t[key] || translations['en'][key] || key;
-}
-
-// Debounced server search
-function handleSearchInput(query) {
-    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-
-    searchDebounceTimer = setTimeout(() => {
-        // Server-side search: reload from page 0 with query
-        previewResource(currentSearchResourceId, currentSearchResourceName, ROWS_PER_PAGE, 0, query.trim());
-    }, 500);
-}
-
-// Go to specific page with validation
-function gotoPage() {
-    const input = document.getElementById('goto-page-input');
-    const page = parseInt(input.value);
-    const maxPage = Math.ceil(currentSearchTotal / ROWS_PER_PAGE);
-
-    // Validate page number
-    if (isNaN(page) || page < 1) {
-        alert('Введите корректный номер страницы (минимум 1)');
-        return;
-    }
-    if (page > maxPage) {
-        alert(`Страница ${page} не существует. Максимальная страница: ${maxPage}`);
-        input.value = maxPage;
-        return;
+    // Filter rows in table
+    const rows = container.querySelectorAll('tr');
+    if (rows.length > 0) {
+        rows.forEach((row, index) => {
+            if (index === 0) return; // Skip header
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+        });
     }
 
-    const newOffset = (page - 1) * ROWS_PER_PAGE;
-    const searchQuery = document.getElementById('dataset-search-input')?.value || '';
-    previewResource(currentSearchResourceId, currentSearchResourceName, ROWS_PER_PAGE, newOffset, searchQuery);
+    // Filter generic text blocks (paragraphs)
+    // const paras = container.querySelectorAll('p, div, li');
+    // paras.forEach(p => {
+    //     if (p.textContent.toLowerCase().includes(query.toLowerCase())) {
+    //        p.style.display = ''; 
+    //     } else {
+    //        // p.style.display = 'none'; // Dangerous for layout
+    //     }
+    // });
 }
 
-// Handle Enter key in page input
-function handlePageInputKey(event) {
-    if (event.key === 'Enter') {
-        gotoPage();
-    }
-}
-
-async function previewResource(resourceId, name = '', limit = 100, offset = 0, searchQuery = '') {
-    console.log('Preview requested for:', resourceId, name, 'search:', searchQuery);
+async function previewResource(resourceId, name = '', limit = 100, offset = 0) {
+    console.log('Preview requested for:', resourceId, name);
     showLoader(true);
 
-    // Save context for navigation
-    currentSearchResourceId = resourceId;
-    currentSearchResourceName = name;
-
     try {
-        const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
-        const url = `/api/gov/transport?resource_id=${resourceId}&limit=${limit}&offset=${offset}${qParam}`;
+        const url = `/api/gov/transport?resource_id=${resourceId}&limit=${limit}&offset=${offset}`;
         const response = await fetch(url);
         const result = await response.json();
 
@@ -669,53 +625,35 @@ async function previewResource(resourceId, name = '', limit = 100, offset = 0, s
 
             // Header with Search & Info
             const safeName = name || 'Dataset Preview';
-            const escapedName = safeName.replace(/'/g, "\\'");
 
             let paginationHtml = '';
             let countInfo = '';
 
             if (meta) {
                 const total = meta.total;
-                currentSearchTotal = total;  // Store for page validation
                 const currentCount = meta.count;
                 const nextOffset = offset + limit;
                 const prevOffset = Math.max(0, offset - limit);
-                const currentPage = Math.floor(offset / limit) + 1;
-                const totalPages = Math.ceil(total / limit);
-
-                countInfo = `<span style="font-size:12px; opacity:0.7; margin-left:10px;">(${offset + 1}-${offset + currentCount} of ${total})</span>`;
+                countInfo = `<span style="font-size:12px; opacity:0.7; margin-left:10px;">(${offset}-${offset + currentCount} of ${total})</span>`;
 
                 paginationHtml = `
-                    <div style="display: flex; gap: 5px; margin-left: auto; align-items: center; flex-wrap: wrap;">
-                         <input type="text" id="dataset-search-input" placeholder="${getTranslation('ph_search_dataset')}"
-                            oninput="handleSearchInput(this.value)"
-                            value="${searchQuery || ''}"
-                            style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 180px;">
-                         
-                         <span style="opacity:0.6; font-size:11px;">|</span>
-                         
+                    <div style="display: flex; gap: 5px; margin-left: auto; align-items: center;">
+                         <input type="text" placeholder="🔍 Find in file..." 
+                            onkeyup="filterPreviewTable(this.value)"
+                            style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white;">
+                            
                         <button class="btn-secondary" style="margin:0" ${offset === 0 ? 'disabled' : ''} 
-                            onclick="previewResource('${resourceId}', '${escapedName}', ${limit}, ${prevOffset}, '${searchQuery}')">⬅</button>
-                        <span style="opacity:0.8; font-size:12px;">${currentPage}/${totalPages}</span>
+                            onclick="previewResource('${resourceId}', '${name}', ${limit}, ${prevOffset})">⬅ Prev</button>
                         <button class="btn-secondary" style="margin:0" ${nextOffset >= total ? 'disabled' : ''} 
-                            onclick="previewResource('${resourceId}', '${escapedName}', ${limit}, ${nextOffset}, '${searchQuery}')">➡</button>
-                        
-                        <span style="opacity:0.6; font-size:11px;">|</span>
-                        
-                        <input type="number" id="goto-page-input" min="1" max="${totalPages}" 
-                            placeholder="№" 
-                            onkeydown="handlePageInputKey(event)"
-                            style="width:50px; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; text-align:center;">
-                        <button class="btn-secondary" style="margin:0; padding: 4px 8px;" onclick="gotoPage()">Go</button>
+                            onclick="previewResource('${resourceId}', '${name}', ${limit}, ${nextOffset})">Next ➡</button>
                     </div>
                  `;
             } else {
                 // Non-tabular or no pagination meta
                 paginationHtml = `
                     <div style="margin-left: auto;">
-                        <input type="text" id="dataset-search-input" placeholder="${getTranslation('ph_search_dataset')}" 
-                            oninput="handleSearchInput(this.value)"
-                            value="${searchQuery || ''}"
+                        <input type="text" placeholder="🔍 Find in text..." 
+                            onkeyup="filterPreviewTable(this.value)"
                             style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white;">
                     </div>`;
             }
@@ -727,7 +665,7 @@ async function previewResource(resourceId, name = '', limit = 100, offset = 0, s
                         <span style="font-size:11px; opacity:0.6;">ID: ${resourceId} ${countInfo}</span>
                     </div>
                     ${paginationHtml}
-                    <button class="btn-secondary" style="margin-left: 10px; background: #ef4444; border-color: #ef4444;" onclick="closePreviewModal()">✖</button>
+                    <button class="btn-secondary" style="margin-left: 10px; background: #ef4444; border-color: #ef4444;" onclick="closePreviewModal()">✖ Close</button>
                 </div>
                 <div class="preview-content" id="modal-content"></div>
              `;
@@ -1030,9 +968,9 @@ async function getPoliceStats() {
     hideMarkdownResult();
 
     try {
-        // Add 15 second timeout (server has 10s timeout)
+        // Add 5 second timeout to prevent hanging
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const response = await fetch('/api/judicial/police', {
             method: 'POST',
@@ -1052,19 +990,24 @@ async function getPoliceStats() {
         }
     } catch (error) {
         console.error('Police stats error:', error);
-        // Fallback: show error message
+        // Fallback: show info message
         showMarkdownResult([
             '🚔 **סטטיסטיקת משטרת ישראל**',
             '',
             `**קטגוריה:** ${category}`,
             '',
-            `> ⚠️ שגיאה בטעינת נתונים: ${error.name === 'AbortError' ? 'Timeout' : error.message}`,
+            '> ⚠️ שרת mcp-legal לא מחובר.',
             '',
-            '**נסו:**',
-            '- לרענן את הדף',
-            '- לבחור קטגוריה אחרת',
+            '**מידע זמין:**',
+            '- סטטיסטיקת פשיעה (5 שנים)',
+            '- עבירות תנועה',
+            '- תאונות דרכים',
             '',
-            '**מקור נתונים:** data.gov.il'
+            '**מקור נתונים:** data.gov.il',
+            '',
+            '---',
+            '',
+            '💡 לחיפוש נתונים השתמשו ב-`find_datasets("משטרה פשע")`'
         ].join('\n'));
     } finally {
         showLoader(false);
@@ -1079,9 +1022,9 @@ async function getFinesInfo() {
     hideMarkdownResult();
 
     try {
-        // Add 15 second timeout (server has 10s timeout)  
+        // Add 5 second timeout to prevent hanging  
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const response = await fetch('/api/judicial/fines', {
             method: 'POST',
