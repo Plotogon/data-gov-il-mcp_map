@@ -73,7 +73,25 @@ const translations = {
         btn_fines_info: "💰 מידע על תשלום וערעור",
 
         // Preview Modal
-        ph_search_dataset: "🔍 חיפוש בכל הנתונים"
+        ph_search_dataset: "🔍 חיפוש בכל הנתונים",
+
+        // System messages (for MCP response translation)
+        msg_traffic_no_data: "⚠️ נתוני עבירות תנועה (דוחות) אינם מפורסמים באופן פומבי",
+        msg_available_datasets: "מאגרי מידע זמינים",
+        msg_searchable_resources: "משאבים זמינים לחיפוש",
+        msg_next_steps: "צעדים הבאים",
+        msg_no_public_data: "נתונים אישיים אינם זמינים לציבור",
+        msg_fines_available_via: "מידע על דוחות וקנסות זמין באמצעות",
+        msg_police_website: "אתר משטרת ישראל",
+        msg_pay_fines: "תשלום קנסות",
+        msg_related_transport_data: "נתונים הקשורים לתחבורה",
+        msg_accidents_select: "תאונות דרכים → בחרו קטגוריה",
+        msg_crimes_select: "סטטיסטיקת פשיעה → בחרו קטגוריה",
+        msg_sample_data: "דוגמת נתונים",
+        msg_police_data: "נתוני משטרת ישראל",
+        msg_crime_stats: "סטטיסטיקת פשיעה",
+        msg_traffic_violations: "עבירות תנועה",
+        msg_traffic_accidents: "תאונות דרכים"
     },
     en: {
         title: "Public Verification Interface",
@@ -153,7 +171,25 @@ const translations = {
         btn_fines_info: "💰 Payment & Appeal Info",
 
         // Preview Modal
-        ph_search_dataset: "🔍 Search entire dataset"
+        ph_search_dataset: "🔍 Search entire dataset",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ Traffic violations data is not publicly available",
+        msg_available_datasets: "Available Datasets",
+        msg_searchable_resources: "Searchable Resources",
+        msg_next_steps: "Next Steps",
+        msg_no_public_data: "Individual case data is not publicly available",
+        msg_fines_available_via: "Fines and reports info available via",
+        msg_police_website: "Israel Police Website",
+        msg_pay_fines: "Pay Fines",
+        msg_related_transport_data: "Related transport data",
+        msg_accidents_select: "Traffic accidents → select category",
+        msg_crimes_select: "Crime statistics → select category",
+        msg_sample_data: "Sample Data",
+        msg_police_data: "Israel Police Data",
+        msg_crime_stats: "Crime Statistics",
+        msg_traffic_violations: "Traffic Violations",
+        msg_traffic_accidents: "Traffic Accidents"
     },
     ru: {
         title: "Интерфейс Общественной Верификации",
@@ -233,7 +269,25 @@ const translations = {
         btn_fines_info: "💰 Оплата и обжалование",
 
         // Preview Modal
-        ph_search_dataset: "🔍 Поиск по всему датасету"
+        ph_search_dataset: "🔍 Поиск по всему датасету",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ Данные о нарушениях ПДД не публикуются",
+        msg_available_datasets: "Доступные датасеты",
+        msg_searchable_resources: "Ресурсы для поиска",
+        msg_next_steps: "Следующие шаги",
+        msg_no_public_data: "Персональные данные недоступны",
+        msg_fines_available_via: "Информация о штрафах доступна через",
+        msg_police_website: "Сайт полиции Израиля",
+        msg_pay_fines: "Оплата штрафов",
+        msg_related_transport_data: "Связанные транспортные данные",
+        msg_accidents_select: "ДТП → выберите категорию",
+        msg_crimes_select: "Статистика преступлений → выберите категорию",
+        msg_sample_data: "Пример данных",
+        msg_police_data: "Данные полиции Израиля",
+        msg_crime_stats: "Статистика преступлений",
+        msg_traffic_violations: "Нарушения ПДД",
+        msg_traffic_accidents: "ДТП"
     },
     ar: {
         title: "واجهة التحقق العامة",
@@ -302,7 +356,25 @@ const translations = {
         btn_fines_info: "💰 معلومات الدفع والاستئناف",
 
         // Preview Modal
-        ph_search_dataset: "🔍 البحث في جميع البيانات"
+        ph_search_dataset: "🔍 البحث في جميع البيانات",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ بيانات مخالفات المرور غير متاحة للعامة",
+        msg_available_datasets: "مجموعات البيانات المتاحة",
+        msg_searchable_resources: "موارد قابلة للبحث",
+        msg_next_steps: "الخطوات التالية",
+        msg_no_public_data: "البيانات الشخصية غير متاحة",
+        msg_fines_available_via: "معلومات الغرامات متاحة عبر",
+        msg_police_website: "موقع شرطة إسرائيل",
+        msg_pay_fines: "دفع الغرامات",
+        msg_related_transport_data: "بيانات النقل ذات الصلة",
+        msg_accidents_select: "حوادث الطرق ← اختر الفئة",
+        msg_crimes_select: "إحصائيات الجريمة ← اختر الفئة",
+        msg_sample_data: "بيانات نموذجية",
+        msg_police_data: "بيانات شرطة إسرائيل",
+        msg_crime_stats: "إحصائيات الجريمة",
+        msg_traffic_violations: "مخالفات المرور",
+        msg_traffic_accidents: "حوادث الطرق"
     },
     es: {
         title: "Interfaz de Verificación Pública",
@@ -371,7 +443,25 @@ const translations = {
         btn_fines_info: "💰 Pago y apelación",
 
         // Preview Modal
-        ph_search_dataset: "🔍 Buscar en todo el dataset"
+        ph_search_dataset: "🔍 Buscar en todo el dataset",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ Los datos de infracciones de tráfico no están disponibles públicamente",
+        msg_available_datasets: "Conjuntos de datos disponibles",
+        msg_searchable_resources: "Recursos buscables",
+        msg_next_steps: "Próximos pasos",
+        msg_no_public_data: "Los datos personales no están disponibles",
+        msg_fines_available_via: "Información de multas disponible a través de",
+        msg_police_website: "Sitio web de la policía de Israel",
+        msg_pay_fines: "Pagar multas",
+        msg_related_transport_data: "Datos de transporte relacionados",
+        msg_accidents_select: "Accidentes de tráfico → seleccionar categoría",
+        msg_crimes_select: "Estadísticas de delitos → seleccionar categoría",
+        msg_sample_data: "Datos de muestra",
+        msg_police_data: "Datos de la policía de Israel",
+        msg_crime_stats: "Estadísticas de delitos",
+        msg_traffic_violations: "Infracciones de tráfico",
+        msg_traffic_accidents: "Accidentes de tráfico"
     },
     fr: {
         title: "Interface de Vérification Publique",
@@ -440,7 +530,25 @@ const translations = {
         btn_fines_info: "💰 Paiement et appel",
 
         // Preview Modal
-        ph_search_dataset: "🔍 Rechercher dans toutes les données"
+        ph_search_dataset: "🔍 Rechercher dans toutes les données",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ Les données sur les infractions routières ne sont pas publiques",
+        msg_available_datasets: "Jeux de données disponibles",
+        msg_searchable_resources: "Ressources consultables",
+        msg_next_steps: "Prochaines étapes",
+        msg_no_public_data: "Les données personnelles ne sont pas disponibles",
+        msg_fines_available_via: "Infos amendes disponibles via",
+        msg_police_website: "Site de la police israélienne",
+        msg_pay_fines: "Payer les amendes",
+        msg_related_transport_data: "Données transport associées",
+        msg_accidents_select: "Accidents de la route → choisir catégorie",
+        msg_crimes_select: "Statistiques criminelles → choisir catégorie",
+        msg_sample_data: "Données exemples",
+        msg_police_data: "Données police israélienne",
+        msg_crime_stats: "Statistiques criminelles",
+        msg_traffic_violations: "Infractions routières",
+        msg_traffic_accidents: "Accidents de la route"
     },
     am: {
         title: "የህዝብ ማረጋገጫ በይነገጽ",
@@ -509,6 +617,24 @@ const translations = {
         btn_fines_info: "💰 ክፍያ እና አቤቱታ",
 
         // Preview Modal
-        ph_search_dataset: "🔍 በሁሉም መረጃዎች ይፍለጉ"
+        ph_search_dataset: "🔍 በሁሉም መረጃዎች ይፍለጉ",
+
+        // System messages
+        msg_traffic_no_data: "⚠️ የትራፊክ ጥሰቶች መረጃ ለሕዝብ አይገኝም",
+        msg_available_datasets: "የሚገኙ የመረጃ ስብስቦች",
+        msg_searchable_resources: "ሊፈለጉ የሚችሉ ሀብቶች",
+        msg_next_steps: "ቀጣይ እርምጃዎች",
+        msg_no_public_data: "የግል መረጃ አይገኝም",
+        msg_fines_available_via: "የቅጣት መረጃ በ",
+        msg_police_website: "የእስራኤል ፖሊስ ድረ-ገጽ",
+        msg_pay_fines: "ቅጣቶችን ይክፈሉ",
+        msg_related_transport_data: "ተያያዥ የትራንስፖርት መረጃ",
+        msg_accidents_select: "የመንገድ አደጋዎች → ምድብ ይምረጡ",
+        msg_crimes_select: "የወንጀል ስታቲስቲክስ → ምድብ ይምረጡ",
+        msg_sample_data: "ናሙና መረጃ",
+        msg_police_data: "የእስራኤል ፖሊስ መረጃ",
+        msg_crime_stats: "የወንጀል ስታቲስቲክስ",
+        msg_traffic_violations: "የትራፊክ ጥሰቶች",
+        msg_traffic_accidents: "የመንገድ አደጋዎች"
     }
 };

@@ -446,12 +446,60 @@ function renderMarkdown(text) {
     return html;
 }
 
+// Localize system messages from MCP responses
+function localizeSystemText(text) {
+    if (!text || currentLang === 'he') return text; // Hebrew is default MCP language
+
+    const t = translations[currentLang] || translations['en'];
+
+    // Map of Hebrew phrases to translation keys
+    const replacements = [
+        // Traffic category - no data available
+        ['נתוני עבירות תנועה (דוחות) אינם מפורסמים באופן פומבי', t.msg_traffic_no_data || 'Traffic violations data is not publicly available'],
+        ['מידע על דוחות וקנסות זמין רק באמצעות', t.msg_fines_available_via || 'Fines and reports info available via'],
+        ['אתר משטרת ישראל', t.msg_police_website || 'Israel Police Website'],
+        ['תשלום קנסות', t.msg_pay_fines || 'Pay Fines'],
+        ['נתונים הקשורים לתחבורה', t.msg_related_transport_data || 'Related transport data'],
+        ['תאונות דרכים → בחרו קטגוריה', t.msg_accidents_select || 'Traffic accidents → select category'],
+        ['סטטיסטיקת פשיעה → בחרו קטגוריה', t.msg_crimes_select || 'Crime statistics → select category'],
+
+        // Section headers (English from MCP)
+        ['Available Datasets', t.msg_available_datasets || 'Available Datasets'],
+        ['Searchable Resources', t.msg_searchable_resources || 'Searchable Resources'],
+        ['Next Steps', t.msg_next_steps || 'Next Steps'],
+        ['Individual case data is not publicly available', t.msg_no_public_data || 'Individual case data is not publicly available'],
+        ['Sample Data', t.msg_sample_data || 'Sample Data'],
+
+        // Hebrew equivalents
+        ['מאגרי מידע זמינים', t.msg_available_datasets || 'Available Datasets'],
+        ['משאבים זמינים לחיפוש', t.msg_searchable_resources || 'Searchable Resources'],
+        ['צעדים הבאים', t.msg_next_steps || 'Next Steps'],
+        ['נתונים אישיים אינם זמינים לציבור', t.msg_no_public_data || 'Individual case data is not publicly available'],
+
+        // Common labels
+        ['Israel Police Data', t.msg_police_data || 'Israel Police Data'],
+        ['סטטיסטיקת פשיעה', t.msg_crime_stats || 'Crime Statistics'],
+        ['עבירות תנועה', t.msg_traffic_violations || 'Traffic Violations'],
+        ['תאונות דרכים', t.msg_traffic_accidents || 'Traffic Accidents'],
+    ];
+
+    let result = text;
+    replacements.forEach(([from, to]) => {
+        if (to) result = result.replace(new RegExp(from, 'g'), to);
+    });
+
+    return result;
+}
+
 // Improved Renderer
 function displayMarkdownResult(text) {
     const container = document.getElementById('markdown-result');
     container.innerHTML = '';
 
     if (!text) return; // Guard clause
+
+    // Localize system messages first
+    text = localizeSystemText(text);
 
     // Naive Markdown to HTML
     let html = text
