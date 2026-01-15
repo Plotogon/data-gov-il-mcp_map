@@ -531,11 +531,15 @@ app.post('/api/judicial/court', async (req, res) => {
 });
 
 
+// Initialize MCP clients immediately (for both local and Vercel)
+console.log('🚀 Initializing MCP clients...');
+await startMcpClients();
+console.log('✅ MCP clients initialized successfully');
+
 // Only listen if executed directly (not when imported by Vercel)
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    app.listen(port, async () => {
+    app.listen(port, () => {
         console.log(`🌍 GovMap Explorer running at http://localhost:${port}`);
-        await startMcpClients();
     });
 }
 
