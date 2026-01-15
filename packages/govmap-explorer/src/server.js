@@ -1,11 +1,12 @@
-
+import express from 'express';
+import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { MockMcpServer } from './utils/MockMcpServer.js';
-import { registerGovTools } from '../../../mcp-gov/src/server.js';
-import { registerGeospatialTools } from '../../../mcp-geospatial/src/server.js';
-import { registerFinanceTools } from '../../../mcp-finance/src/server.js';
-import { registerLegalTools } from '../../../mcp-judicial/src/server.js';
+import { registerGovTools } from './vendor/mcp-gov/server.js';
+import { registerGeospatialTools } from './vendor/mcp-geospatial/server.js';
+import { registerFinanceTools } from './vendor/mcp-finance/server.js';
+import { registerLegalTools } from './vendor/mcp-judicial/server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
