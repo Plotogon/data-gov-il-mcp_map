@@ -6,12 +6,24 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { fileURLToPath } from 'url';
 
 // GovMap tools
 import { registerGeocodeTool } from './tools/govmap/geocode.js';
 import { registerCadastralTool } from './tools/govmap/cadastral.js';
 import { registerAutocompleteTool } from './tools/govmap/autocomplete.js';
 import { registerConverterTool } from './tools/govmap/converter.js';
+
+/**
+ * Register all Geospatial tools to a server instance
+ * @param {McpServer} server 
+ */
+export function registerGeospatialTools(server) {
+    registerGeocodeTool(server);
+    registerCadastralTool(server);
+    registerConverterTool(server);
+    registerAutocompleteTool(server);
+}
 
 /**
  * Create and configure MCP-Geospatial server
@@ -32,20 +44,11 @@ function createGeospatialServer() {
     console.error('');
     console.error('🔧 Geospatial Tools:');
 
-    // Register geocoding tool
-    registerGeocodeTool(server);
+    registerGeospatialTools(server);
+
     console.error('  ✅ geocode_address - Address → Coordinates');
-
-    // Register cadastral tool
-    registerCadastralTool(server);
     console.error('  ✅ search_cadastral - Gush/Helka parcel search');
-
-    // Register converter tool
-    registerConverterTool(server);
     console.error('  ✅ convert_coordinates - ITM ↔ WGS84');
-
-    // Register autocomplete tool
-    registerAutocompleteTool(server);
     console.error('  ✅ autocomplete - Raw suggestions (JSON)');
 
     console.error('');
@@ -71,4 +74,7 @@ async function main() {
     }
 }
 
-main();
+// Only run if executed directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}

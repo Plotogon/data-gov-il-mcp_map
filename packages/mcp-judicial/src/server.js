@@ -8,6 +8,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { fileURLToPath } from 'url';
 
 // Court tools
 import { registerGetCourtInfoTool } from './tools/courts/court-info.js';
@@ -17,6 +18,20 @@ import { registerGetCourtStatisticsTool } from './tools/statistics/legal-stats.j
 
 // Police tools
 import { registerGetPoliceStatisticsTool, registerGetFinesInfoTool } from './tools/police/police-stats.js';
+
+/**
+ * Register all Legal tools to a server instance
+ * @param {McpServer} server 
+ */
+export function registerLegalTools(server) {
+    // Register court tools
+    registerGetCourtInfoTool(server);
+    registerGetCourtStatisticsTool(server);
+
+    // Register police tools
+    registerGetPoliceStatisticsTool(server);
+    registerGetFinesInfoTool(server);
+}
 
 /**
  * Create and configure MCP-Legal server
@@ -41,18 +56,11 @@ function createLegalServer() {
     console.error('');
     console.error('🔧 Legal Tools:');
 
-    // Register court tools
-    registerGetCourtInfoTool(server);
+    registerLegalTools(server);
+
     console.error('  ✅ get_court_info');
-
-    registerGetCourtStatisticsTool(server);
     console.error('  ✅ get_court_statistics');
-
-    // Register police tools
-    registerGetPoliceStatisticsTool(server);
     console.error('  ✅ get_police_statistics');
-
-    registerGetFinesInfoTool(server);
     console.error('  ✅ get_fines_info');
 
     console.error('');
@@ -81,4 +89,7 @@ async function main() {
     }
 }
 
-main();
+// Only run if executed directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}

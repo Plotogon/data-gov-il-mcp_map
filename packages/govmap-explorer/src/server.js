@@ -1,8 +1,11 @@
-import express from 'express';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import path from 'path';
+
 import { fileURLToPath } from 'url';
+
+import { MockMcpServer } from './utils/MockMcpServer.js';
+import { registerGovTools } from '../../../mcp-gov/src/server.js';
+import { registerGeospatialTools } from '../../../mcp-geospatial/src/server.js';
+import { registerFinanceTools } from '../../../mcp-finance/src/server.js';
+import { registerLegalTools } from '../../../mcp-judicial/src/server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -11,64 +14,56 @@ const port = process.env.PORT || 3002;
 app.use(express.static(path.join(__dirname, 'static')));
 app.use(express.json());
 
-// MCP Client setup
-// --- MCP Client Setup ---
+// MCP Client setup (In-Process Mock Client for Vercel)
+// --- Vercel-Compatible Setup ---
 
 const clients = {};
 
-async function createClient(name, scriptPath) {
-    const transport = new StdioClientTransport({
-        command: 'node',
-        args: [scriptPath],
-        cwd: path.resolve(__dirname, '../../')
-    });
-
-    const client = new Client(
-        { name: `${name}-client`, version: "1.0.0" },
-        { capabilities: {} }
-    );
-
-    try {
-        await client.connect(transport);
-        console.log(`✅ Connected to ${name}`);
-        const tools = await client.listTools();
-        console.log(`   Tools: ${tools.tools.map(t => t.name).join(', ')}`);
-        clients[name] = client;
-    } catch (error) {
-        console.error(`❌ Failed to connect to ${name}:`, error.message);
-    }
-}
-
 async function startMcpClients() {
-    console.log('🔌 Connecting to MCP Servers...');
-
-    // Connect sequentially to avoid race conditions/stdio mixing
-    try {
-        console.log('   Starting Geo...');
-        await createClient('geo', 'mcp-geospatial/src/server.js');
-    } catch (e) { console.error('   ❌ Geo failed:', e.message); }
+    console.log('🔌 Initializing In-Process MCP Servers...');
 
     try {
-        console.log('   Starting Finance...');
-        await createClient('finance', 'mcp-finance/src/server.js');
-    } catch (e) { console.error('   ❌ Finance failed:', e.message); }
+        const govServer = new MockMcpServer({ name: 'mcp-gov' });
+        registerGovTools(govServer);
+        clients['gov'] = govServer;
+        console.log('   ✅ Gov server ready');
+    } catch (e) {
+        console.error('   ❌ Gov failed:', e);
+    }
 
     try {
-        console.log('   Starting Gov...');
-        await createClient('gov', 'mcp-gov/src/server.js');
-    } catch (e) { console.error('   ❌ Gov failed:', e.message); }
+        const geoServer = new MockMcpServer({ name: 'mcp-geospatial' });
+        registerGeospatialTools(geoServer);
+        clients['geo'] = geoServer;
+        console.log('   ✅ Geo server ready');
+    } catch (e) {
+        console.error('   ❌ Geo failed:', e);
+    }
 
     try {
-        console.log('   Starting Judicial...');
-        await createClient('judicial', 'mcp-judicial/src/server.js');
-    } catch (e) { console.error('   ❌ Judicial failed:', e.message); }
+        const financeServer = new MockMcpServer({ name: 'mcp-finance' });
+        registerFinanceTools(financeServer);
+        clients['finance'] = financeServer;
+        console.log('   ✅ Finance server ready');
+    } catch (e) {
+        console.error('   ❌ Finance failed:', e);
+    }
 
-    console.log('✨ All clients initialized.');
+    try {
+        const judicialServer = new MockMcpServer({ name: 'mcp-judicial' });
+        registerLegalTools(judicialServer);
+        clients['judicial'] = judicialServer;
+        console.log('   ✅ Judicial server ready');
+    } catch (e) {
+        console.error('   ❌ Judicial failed:', e);
+    }
+
+    console.log('✨ All clients initialized (In-Process).');
 }
 
 // Helper to get client
 const getClient = (name) => {
-    if (!clients[name]) throw new Error(`Client ${name} not connected`);
+    if (!clients[name]) throw new Error(`Client ${name} not initialised`);
     return clients[name];
 };
 

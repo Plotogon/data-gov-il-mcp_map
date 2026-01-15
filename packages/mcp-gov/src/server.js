@@ -21,6 +21,26 @@ import { registerTransportStatisticsTool } from './tools/transport/transport-sta
 import { registerEmergencyAlertsTool } from './tools/emergency/pikud-haoref.js';
 
 /**
+ * Register all Gov tools to a server instance
+ * @param {McpServer} server 
+ */
+export function registerGovTools(server) {
+    // Register ALL data.gov.il tools
+    registerFindDatasetsTool(server);
+    registerGetDatasetInfoTool(server);
+    registerSearchRecordsTool(server);
+    registerTagsTool(server);
+    registerSearchTagsTool(server);
+    registerOrganizationTools(server);
+
+    // Transport tools
+    registerTransportStatisticsTool(server);
+
+    // Emergency tools
+    registerEmergencyAlertsTool(server);
+}
+
+/**
  * Create and configure MCP-Gov server
  */
 function createGovServer() {
@@ -30,47 +50,7 @@ function createGovServer() {
         description: 'Israeli National Government Data - data.gov.il, transport, and emergency services'
     });
 
-    console.error('🏛️ MCP-Gov Server starting...');
-    console.error('');
-    console.error('📚 Data.gov.il tools:');
-
-    // Register ALL data.gov.il tools
-    registerFindDatasetsTool(server);
-    console.error('  ✅ find_datasets');
-
-    registerGetDatasetInfoTool(server);
-    console.error('  ✅ get_dataset_info');
-
-    registerSearchRecordsTool(server);
-    console.error('  ✅ search_records');
-
-    registerTagsTool(server);
-    console.error('  ✅ list_available_tags');
-
-    registerSearchTagsTool(server);
-    console.error('  ✅ search_tags');
-
-    registerOrganizationTools(server);
-    console.error('  ✅ list_organizations & get_organization_info');
-
-    console.error('');
-    console.error('🚌 Transport tools:');
-
-    registerTransportStatisticsTool(server);
-    console.error('  ✅ transport_statistics');
-
-    console.error('');
-    console.error('🚨 Emergency tools:');
-
-    registerEmergencyAlertsTool(server);
-    console.error('  ✅ emergency_alerts');
-
-    console.error('');
-    console.error('🎯 MCP-Gov server ready!');
-    console.error(`   Total tools: 9`);
-    console.error('');
-    console.error('   All core data.gov.il tools are now active');
-
+    registerGovTools(server);
     return server;
 }
 
@@ -79,6 +59,7 @@ function createGovServer() {
  */
 async function main() {
     try {
+        console.error('🏛️ MCP-Gov Server starting...');
         const server = createGovServer();
         const transport = new StdioServerTransport();
         await server.connect(transport);
@@ -90,4 +71,9 @@ async function main() {
     }
 }
 
-main();
+// Only run if executed directly
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}
+
