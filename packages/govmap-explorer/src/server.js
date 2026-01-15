@@ -534,7 +534,13 @@ app.post('/api/judicial/court', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.listen(port, async () => {
-    console.log(`🌍 GovMap Explorer running at http://localhost:${port}`);
-    await startMcpClients();
-});
+
+// Only listen if executed directly (not when imported by Vercel)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    app.listen(port, async () => {
+        console.log(`🌍 GovMap Explorer running at http://localhost:${port}`);
+        await startMcpClients();
+    });
+}
+
+export default app;
