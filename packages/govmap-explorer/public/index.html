@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Israel Geo-Explorer | GovMap MCP</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Layer Control Panel (bottom-right) -->
+    <div id="layer-control" class="layer-control">
+        <div class="layer-header" onclick="toggleLayerPanel()">
+            <span>🗺️</span>
+            <span data-i18n="layers">שכבות</span>
+            <span id="layer-toggle-icon">▲</span>
+        </div>
+        <div id="layer-list" class="layer-list">
+            <label class="layer-item">
+                <input type="checkbox" id="layer-cadastral" onchange="toggleLayer('cadastral')">
+                <span>📐</span>
+                <span data-i18n="layer_cadastral">גוש/חלקה</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-schools" onchange="toggleLayer('schools')">
+                <span>🏫</span>
+                <span data-i18n="layer_schools">בתי ספר</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-hospitals" onchange="toggleLayer('hospitals')">
+                <span>🏥</span>
+                <span data-i18n="layer_hospitals">בתי חולים</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-police" onchange="toggleLayer('police')">
+                <span>👮</span>
+                <span data-i18n="layer_police">תחנות משטרה</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-fire" onchange="toggleLayer('fire')">
+                <span>🚒</span>
+                <span data-i18n="layer_fire">תחנות כיבוי</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-bus" onchange="toggleLayer('bus')">
+                <span>🚌</span>
+                <span data-i18n="layer_bus">תחנות אוטובוס</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-synagogues" onchange="toggleLayer('synagogues')">
+                <span>🕍</span>
+                <span data-i18n="layer_synagogues">בתי כנסת</span>
+            </label>
+            <label class="layer-item">
+                <input type="checkbox" id="layer-parkride" onchange="toggleLayer('parkride')">
+                <span>🅿️</span>
+                <span data-i18n="layer_parkride">חנה וסע</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="header">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1 data-i18n="title">האקספלורר הממשלתי</h1>
+                <select id="lang-select" onchange="changeLanguage(this.value)"
+                    style="background:rgba(0,0,0,0.3); color:white; border:1px solid #94a3b8; border-radius:4px; padding:2px;">
+                    <option value="he">🇮🇱 HE</option>
+                    <option value="en">🇺🇸 EN</option>
+                    <option value="ru">🇷🇺 RU</option>
+                    <option value="ar">🇵🇸 AR</option>
+                    <option value="es">🇪🇸 ES</option>
+                    <option value="fr">🇫🇷 FR</option>
+                    <option value="am">🇪🇹 AM</option>
+                </select>
+            </div>
+            <div class="subtitle" data-i18n="subtitle">ממשק אחוד לשירותי ממשלה (MCP)</div>
+            <div data-i18n="lbl_ai" style="font-size: 11px; opacity: 0.7; margin-top: 4px; color: #94a3b8;">נבנה באמצעות
+                AI 🤖</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchCategory('geo')" data-i18n="tab_geo">מפות</button>
+            <button class="tab-btn" onclick="switchCategory('finance')" data-i18n="tab_fin">פיננסים</button>
+            <button class="tab-btn" onclick="switchCategory('gov')" data-i18n="tab_gov">ממשל</button>
+            <button class="tab-btn" onclick="switchCategory('judicial')" data-i18n="tab_law">משפט</button>
+        </div>
+
+        <!-- === GEOSPATIAL CATEGORY === -->
+        <div id="cat-geo" class="category-group">
+            <div class="sub-tabs">
+                <button class="tab-link active" onclick="switchSubTab('address')" data-i18n="tab_sub_address">חיפוש
+                    כתובת</button>
+                <button class="tab-link" onclick="switchSubTab('cadastral')"
+                    data-i18n="tab_sub_cadastral">גוש/חלקה</button>
+            </div>
+
+            <!-- Address Tab -->
+            <div id="tab-address" class="input-group">
+                <label data-i18n="lbl_address">כתובת לחיפוש</label>
+                <div class="input-wrapper">
+                    <input type="text" id="address-input" placeholder="לדוגמה: רוטשילד 1 תל אביב"
+                        oninput="handleInput(this)" onkeydown="handleKey(event)" data-i18n-ph="ph_address">
+                    <div id="address-input-list" class="autocomplete-items"></div>
+                </div>
+                <button class="btn-search" onclick="searchAddress()" data-i18n="btn_search_loc">חפש מיקום</button>
+            </div>
+
+            <!-- Cadastral Tab -->
+            <div id="tab-cadastral" class="input-group hidden">
+                <label data-i18n="lbl_gush">גוש</label>
+                <input type="number" id="gush-input" placeholder="e.g. 7422"
+                    onkeypress="handleEnter(event, searchCadastral)">
+                <label data-i18n="lbl_helka">חלקה</label>
+                <input type="number" id="helka-input" placeholder="e.g. 116"
+                    onkeypress="handleEnter(event, searchCadastral)">
+                <button class="btn-search" onclick="searchCadastral()" data-i18n="btn_find_parcel">איתור חלקה</button>
+            </div>
+        </div>
+
+        <!-- === FINANCE CATEGORY === -->
+        <div id="cat-finance" class="category-group hidden">
+            <div class="input-group">
+                <label data-i18n="lbl_symbol">סימול נייר (בורסה)</label>
+                <input type="text" id="finance-symbol" placeholder="לדוגמה: טבע (TEVA)" data-i18n-ph="ph_symbol">
+                <button class="btn-search" onclick="searchFinance()" data-i18n="btn_quote">קבל ציטוט</button>
+            </div>
+            <div class="divider"></div>
+            <button class="btn-secondary" onclick="getRates()" data-i18n="btn_rates">שערי יציג (בנק ישראל)</button>
+        </div>
+
+        <!-- === GOV CATEGORY === -->
+        <div id="cat-gov" class="category-group hidden">
+            <label data-i18n="lbl_public_srv">שירותים ציבוריים</label>
+            <button class="btn-search" onclick="getEmergencyAlerts()" data-i18n="btn_alerts">🚨 היסטוריית התרעות (פיקוד
+                העורף)</button>
+            <button class="btn-secondary" onclick="switchCategory('transport'); loadTransport('all')"
+                data-i18n="btn_transport">🚌 סטטיסטיקת
+                תחבורה</button>
+        </div>
+
+        <!-- === TRANSPORT VIEW (New) === -->
+        <div id="cat-transport" class="category-group hidden">
+            <label data-i18n="lbl_featured"
+                style="color: #60a5fa; margin-top:5px; margin-bottom:5px; display:block;">נתונים נבחרים</label>
+            <div class="sub-tabs" style="margin-bottom: 15px;">
+                <button class="tab-link feature-btn" onclick="loadTransport('trains_feature')"
+                    data-i18n="btn_feat_train">🚆 רכבות</button>
+                <button class="tab-link feature-btn" onclick="loadTransport('flights_feature')"
+                    data-i18n="btn_feat_flight">✈️ טיסות</button>
+                <button class="tab-link feature-btn" onclick="loadTransport('vehicles_feature')"
+                    data-i18n="btn_feat_vehicle">🚗 רכבים</button>
+            </div>
+
+            <label data-i18n="lbl_transport_cat">קטגוריות תחבורה</label>
+            <div class="sub-tabs">
+                <button class="tab-link active" onclick="loadTransport('all')" data-i18n="btn_trans_all">הכל</button>
+                <button class="tab-link" onclick="loadTransport('public-transport')"
+                    data-i18n="btn_trans_pub">תחב"צ</button>
+                <button class="tab-link" onclick="loadTransport('roads')" data-i18n="btn_trans_road">כבישים</button>
+            </div>
+            <div id="transport-list" class="transport-list">
+                <!-- Datasets will appear here -->
+            </div>
+        </div>
+
+        <!-- === LEGAL CATEGORY (Courts + Police + Fines) === -->
+        <div id="cat-judicial" class="category-group hidden">
+            <div class="sub-tabs">
+                <button class="tab-link active" onclick="switchLegalTab('courts')" data-i18n="tab_courts">בתי
+                    משפט</button>
+                <button class="tab-link" onclick="switchLegalTab('police')" data-i18n="tab_police">משטרה</button>
+                <button class="tab-link" onclick="switchLegalTab('fines')" data-i18n="tab_fines">קנסות</button>
+            </div>
+
+            <!-- Courts Sub-Tab -->
+            <div id="legal-courts" class="input-group">
+                <label data-i18n="lbl_court">מידע על בתי משפט</label>
+                <select id="court-select"
+                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
+                    <option value="supreme" data-i18n="opt_supreme">בית המשפט העליון</option>
+                    <option value="district" data-i18n="opt_district">בתי המשפט המחוזיים (רשימה)</option>
+                    <option value="magistrate" data-i18n="opt_magistrate">בתי משפט השלום (כללי)</option>
+                </select>
+                <button class="btn-search" style="margin-top:10px" onclick="searchCourt()"
+                    data-i18n="btn_court_info">קבל מידע</button>
+            </div>
+
+            <!-- Police Sub-Tab -->
+            <div id="legal-police" class="input-group hidden">
+                <label data-i18n="lbl_police_stats">סטטיסטיקת משטרה</label>
+                <select id="police-category"
+                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
+                    <option value="all" data-i18n="opt_police_all">הכל</option>
+                    <option value="crimes" data-i18n="opt_police_crimes">פשיעה</option>
+                    <option value="traffic" data-i18n="opt_police_traffic">עבירות תנועה</option>
+                    <option value="accidents" data-i18n="opt_police_accidents">תאונות דרכים</option>
+                </select>
+                <button class="btn-search" style="margin-top:10px" onclick="getPoliceStats()"
+                    data-i18n="btn_police_stats">🚔 קבל סטטיסטיקה</button>
+            </div>
+
+            <!-- Fines Sub-Tab -->
+            <div id="legal-fines" class="input-group hidden">
+                <label data-i18n="lbl_fines">מידע על קנסות</label>
+                <select id="fine-type"
+                    style="width:100%; padding: 10px; background: rgba(0,0,0,0.3); color:white; border: 1px solid var(--border); border-radius:8px;">
+                    <option value="all" data-i18n="opt_fine_all">כל סוגי הקנסות</option>
+                    <option value="traffic" data-i18n="opt_fine_traffic">קנסות תעבורה</option>
+                    <option value="parking" data-i18n="opt_fine_parking">קנסות חניה</option>
+                    <option value="court" data-i18n="opt_fine_court">קנסות בית משפט</option>
+                </select>
+                <button class="btn-search" style="margin-top:10px" onclick="getFinesInfo()"
+                    data-i18n="btn_fines_info">💰 מידע על תשלום וערעור</button>
+            </div>
+        </div>
+
+        <div class="loader" id="loader"></div>
+
+        <!-- Results -->
+        <div id="markdown-result" class="markdown-result hidden"></div>
+
+        <div id="result-card" class="result-card">
+            <div class="result-item">
+                <span class="result-label" data-i18n="lbl_query">שאילתה</span>
+                <div class="result-value" id="res-query"></div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label" data-i18n="lbl_res_addr">כתובת / שם</span>
+                <div class="result-value" id="res-address"></div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label">COORDINATES (WGS84)</span>
+                <div class="result-value">
+                    <span class="badge" id="res-lat">LAT: -</span>
+                    <span class="badge" id="res-lon">LON: -</span>
+                </div>
+            </div>
+
+            <div class="result-item">
+                <span class="result-label">COORDINATES (ITM)</span>
+                <div class="result-value">
+                    <span class="badge" id="res-x">X: -</span>
+                    <span class="badge" id="res-y">Y: -</span>
+                </div>
+            </div>
+
+            <div id="extra-data"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script src="app-i18n.js"></script>
+    <script defer src="app.js?v=2.0.1"></script>
+</body>
+
+</html>

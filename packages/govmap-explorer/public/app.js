@@ -1,0 +1,1184 @@
+// Initialize map
+const map = L.map('map', {
+    zoomControl: false // We'll add it in custom position
+}).setView([32.0853, 34.7818], 13); // Default to Tel Aviv
+
+// Add zoom control to bottom-right
+L.control.zoom({
+    position: 'bottomright'
+}).addTo(map);
+
+// Add Light tiles (CartoDB Positron)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+}).addTo(map);
+
+let currentMarker = null;
+
+// ===== Layer Control =====
+const mapLayers = {};
+
+// GovMap WMS base URL
+const GOVMAP_WMS = 'https://ags.govmap.gov.il/proxy/proxy.ashx?https://gisn.tel-aviv.gov.il/arcgis/services/IView2WMS/MapServer/WMSServer';
+
+// Layer definitions (using OpenStreetMap data via overpass or placeholder tiles)
+const layerConfigs = {
+    cadastral: {
+        name: 'Cadastral',
+        // GovMap cadastral layer (approximate)
+        url: 'https://ags.govmap.gov.il/proxy/proxy.ashx?https://ags.govmap.gov.il/arcgis/rest/services/AdministrativeUnitsWMS/MapServer/tile/{z}/{y}/{x}',
+        options: { opacity: 0.6, maxZoom: 20 }
+    },
+    schools: {
+        name: 'Schools',
+        // Placeholder - will show markers loaded from data.gov.il
+        type: 'markers',
+        icon: '🏫',
+        color: '#22c55e'
+    },
+    hospitals: {
+        name: 'Hospitals',
+        type: 'markers',
+        icon: '🏥',
+        color: '#ef4444'
+    },
+    police: {
+        name: 'Police',
+        type: 'markers',
+        icon: '👮',
+        color: '#3b82f6'
+    },
+    fire: {
+        name: 'Fire Stations',
+        type: 'markers',
+        icon: '🚒',
+        color: '#f97316'
+    },
+    bus: {
+        name: 'Bus Stops',
+        type: 'markers',
+        icon: '🚌',
+        color: '#8b5cf6'
+    }
+};
+
+// Toggle layer panel collapse
+function toggleLayerPanel() {
+    const control = document.getElementById('layer-control');
+    control.classList.toggle('collapsed');
+}
+
+// Toggle individual layer
+async function toggleLayer(layerId) {
+    const checkbox = document.getElementById(`layer-${layerId}`);
+    const isEnabled = checkbox.checked;
+
+    if (isEnabled) {
+        // Add layer
+        await addLayer(layerId);
+    } else {
+        // Remove layer
+        removeLayer(layerId);
+    }
+}
+
+// Add a layer to the map
+async function addLayer(layerId) {
+    const config = layerConfigs[layerId];
+    if (!config) return;
+
+    if (config.type === 'markers') {
+        // Create marker layer group
+        const layerGroup = L.layerGroup();
+
+        // Load data for this layer type
+        try {
+            const markers = await loadLayerData(layerId);
+            markers.forEach(m => {
+                const icon = L.divIcon({
+                    html: `<div style="font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${config.icon}</div>`,
+                    className: 'custom-marker',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                L.marker([m.lat, m.lon], { icon })
+                    .bindPopup(`<b>${m.name}</b><br>${m.address || ''}`)
+                    .addTo(layerGroup);
+            });
+        } catch (e) {
+            console.warn(`Layer ${layerId} data not available:`, e.message);
+            // Add placeholder message
+            const center = map.getCenter();
+            L.popup()
+                .setLatLng(center)
+                .setContent(`⚠️ ${config.name} data requires API integration`)
+                .openOn(map);
+        }
+
+        layerGroup.addTo(map);
+        mapLayers[layerId] = layerGroup;
+    } else if (config.url) {
+        // Tile layer
+        const layer = L.tileLayer(config.url, config.options);
+        layer.addTo(map);
+        mapLayers[layerId] = layer;
+    }
+}
+
+// Remove layer from map
+function removeLayer(layerId) {
+    if (mapLayers[layerId]) {
+        map.removeLayer(mapLayers[layerId]);
+        delete mapLayers[layerId];
+    }
+}
+
+// Load marker data for layer from API
+async function loadLayerData(layerId) {
+    try {
+        // Get current map bounds for geographic filtering
+        const bounds = map.getBounds();
+        const params = new URLSearchParams({
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest()
+        });
+
+        const response = await fetch(`/api/layers/${layerId}?${params}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            console.log(`✅ Loaded ${result.count} items for layer ${layerId}`);
+            return result.data;
+        }
+
+        console.warn(`Layer ${layerId} returned no data`);
+        return [];
+    } catch (error) {
+        console.error(`Error loading layer ${layerId}:`, error);
+        return [];
+    }
+}
+
+// --- Autocomplete Logic ---
+let currentFocus = -1;
+let searchTimeout = null;
+
+function parseWKT(wkt) {
+    if (!wkt) return null;
+    const match = wkt.match(/POINT\s*\(([\d.]+)\s+([\d.]+)\)/);
+    if (match) {
+        const x = parseFloat(match[1]);
+        const y = parseFloat(match[2]);
+        const rMajor = 6378137;
+        const shift = Math.PI * rMajor;
+        const lon = x / shift * 180.0;
+        let lat = y / shift * 180.0;
+        lat = 180.0 / Math.PI * (2.0 * Math.atan(Math.exp(lat * Math.PI / 180.0)) - Math.PI / 2.0);
+        return { x, y, lat, lon, system: 'WGS84' };
+    }
+    return null;
+}
+
+function handleDirectSelection(item) {
+    let coords = parseWKT(item.shape);
+
+    // Fallback if coordinates are raw X/Y
+    if (!coords && item.x && item.y) {
+        // Assume ITM if small numbers (not implemented here fully) or Web Mercator
+        // But autocomplete usually returns shape WKT
+        coords = { x: item.x, y: item.y };
+    }
+
+    // Update Result Card directly
+    updateResultCard({
+        query: item.text || item.name,
+        address: item.text || item.name,
+        coordinates: coords,
+        type: item.type,
+        municipality: item.municipality,
+        district: item.district
+    });
+
+    // Update Map
+    updateMap(coords);
+}
+
+async function fetchSuggestions(query) {
+    if (!query || query.length < 2) return [];
+    try {
+        const response = await fetch('/api/suggestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query })
+        });
+        return await response.json();
+    } catch (e) {
+        return [];
+    }
+}
+
+function handleInput(inp) {
+    const listId = inp.id + "-list";
+    let list = document.getElementById(listId);
+
+    // Clear previous timeout
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    // Debounce search
+    searchTimeout = setTimeout(async () => {
+        const val = inp.value;
+        closeAllLists();
+        if (!val) return false;
+
+        currentFocus = -1;
+
+        // Show temp list or loader?
+
+        const suggestions = await fetchSuggestions(val);
+
+        if (suggestions.length === 0) return;
+
+        list.innerHTML = '';
+
+        suggestions.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "autocomplete-item";
+            const text = item.address || item.name || item.text;
+
+            // Highlight matching part
+            const regex = new RegExp(`(${val})`, 'gi');
+            div.innerHTML = text.replace(regex, '<strong>$1</strong>');
+            div.innerHTML += `<input type='hidden' value='${text.replace(/'/g, "&apos;")}'>`;
+
+            div.addEventListener("click", function (e) {
+                inp.value = text;
+                closeAllLists();
+                handleDirectSelection(item);
+            });
+            list.appendChild(div);
+        });
+    }, 300); // 300ms debounce
+}
+
+function handleKey(e) {
+    let list = document.getElementById(e.target.id + "-list");
+    if (list) list = list.getElementsByTagName("div");
+    if (e.keyCode == 40) { // DOWN
+        currentFocus++;
+        addActive(list);
+    } else if (e.keyCode == 38) { // UP
+        currentFocus--;
+        addActive(list);
+    } else if (e.keyCode == 13) { // ENTER
+        e.preventDefault();
+        if (currentFocus > -1) {
+            if (list) list[currentFocus].click();
+        } else {
+            // Normal enter search
+            if (e.target.id.includes('gush') || e.target.id.includes('helka')) {
+                searchCadastral();
+            } else {
+                searchAddress();
+            }
+        }
+    }
+}
+
+function addActive(x) {
+    if (!x) return false;
+    removeActive(x);
+    if (currentFocus >= x.length) currentFocus = 0;
+    if (currentFocus < 0) currentFocus = (x.length - 1);
+    x[currentFocus].classList.add("autocomplete-active");
+}
+
+function removeActive(x) {
+    for (let i = 0; i < x.length; i++) {
+        x[i].classList.remove("autocomplete-active");
+    }
+}
+
+function closeAllLists(elmnt) {
+    const lists = document.getElementsByClassName("autocomplete-items");
+    for (let i = 0; i < lists.length; i++) {
+        if (elmnt != lists[i] && elmnt != document.getElementById("address-input")) {
+            lists[i].innerHTML = "";
+        }
+    }
+}
+
+document.addEventListener("click", function (e) {
+    closeAllLists(e.target);
+});
+
+
+// --- Existing Logic ---
+
+function handleEnter(event, callback) {
+    if (event.key === 'Enter') {
+        callback();
+    }
+}
+
+// --- I18n Logic ---
+
+let currentLang = 'he';
+
+function changeLanguage(lang) {
+    currentLang = lang;
+    const t = translations[lang];
+    if (!t) return;
+
+    // Update Text Elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.textContent = t[key];
+    });
+
+    // Update Placeholders
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const key = el.getAttribute('data-i18n-ph');
+        if (t[key]) el.placeholder = t[key];
+    });
+
+    // Update Direction
+    const isRtl = ['he', 'ar'].includes(lang);
+    document.body.dir = isRtl ? 'rtl' : 'ltr';
+    document.querySelector('.sidebar').style.right = isRtl ? '20px' : 'auto';
+    document.querySelector('.sidebar').style.left = isRtl ? 'auto' : '20px';
+
+    // Update Map Attribution (optional)
+
+    // Close lists
+    closeAllLists();
+}
+
+// Override Init
+document.addEventListener('DOMContentLoaded', () => {
+    changeLanguage('he'); // Default
+});
+
+// --- UI Logic ---
+
+// Switch Main Category
+function switchCategory(cat) {
+    // Update Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        // Simple check if onclick contains the cat
+        if (btn.getAttribute('onclick')?.includes(`'${cat}'`)) btn.classList.add('active');
+    });
+
+    // Hide all categories
+    document.querySelectorAll('.category-group').forEach(el => el.classList.add('hidden'));
+
+    // Show selected category
+    const targetCat = document.getElementById(`cat-${cat}`);
+    if (targetCat) targetCat.classList.remove('hidden');
+
+    // Clear Results
+    document.getElementById('result-card').classList.remove('visible');
+    document.getElementById('markdown-result').classList.add('hidden');
+    document.getElementById('markdown-result').innerHTML = '';
+}
+
+// Switch Sub-Tab (Geospatial specific)
+function switchSubTab(tab) {
+    document.querySelectorAll('.tab-link').forEach(btn => btn.classList.remove('active'));
+    // Find button
+    const buttons = Array.from(document.querySelectorAll('.tab-link'));
+    const targetBtn = buttons.find(b => b.getAttribute('onclick')?.includes(`'${tab}'`));
+    if (targetBtn) targetBtn.classList.add('active');
+
+    // Hide inputs
+    document.getElementById('tab-address').classList.add('hidden');
+    document.getElementById('tab-cadastral').classList.add('hidden');
+
+    // Show target
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+}
+
+// Render Simple Markdown (Headers, Tables, Bold)
+function renderMarkdown(text) {
+    if (!text) return '';
+    let html = text
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
+        .replace(/\n/gim, '<br>');
+
+    // Simple Table Parsing
+    if (text.includes('|')) {
+        const lines = text.split('\n').filter(l => l.trim().startsWith('|'));
+        if (lines.length > 0) {
+            let table = '<table>';
+            lines.forEach((line, index) => {
+                const cols = line.split('|').filter(c => c.trim() !== '').map(c => c.trim());
+                if (line.includes('---')) return; // Skip separator line
+
+                table += '<tr>';
+                cols.forEach(col => {
+                    const tag = (index === 0) ? 'th' : 'td';
+                    // Clean Bold inside cells if not handled
+                    const content = col.replace(/\*\*(.*)\*\*/gim, '<b>$1</b>');
+                    table += `<${tag}>${content}</${tag}>`;
+                });
+                table += '</tr>';
+            });
+            table += '</table>';
+            // Replace the block of table lines with the HTML table
+            // This is a naive replacement, basically replacing the whole text if it's mostly a table
+            // For now, let's just append the table if found? 
+            // Better: If we built a table, let's blindly return it if the text was "table heavy".
+            // But let's mix it. 
+            // Re-render strategy: Just use the HTML we built for lines that were tables.
+            // (Simplified for demo)
+            return html.includes('|') ? html.replace(/\|.*\|/s, table) : html; // Regex fail likely on multi-line.
+            // Fallback: Just return the table HTML if we found a valid one, otherwise raw.
+            return table + (html.replace(/\|.*\|/g, ''));
+        }
+    }
+    return html;
+}
+
+// Localize system messages from MCP responses
+function localizeSystemText(text) {
+    if (!text || currentLang === 'he') return text; // Hebrew is default MCP language
+
+    const t = translations[currentLang] || translations['en'];
+
+    // Map of Hebrew phrases to translation keys
+    const replacements = [
+        // Traffic category - no data available
+        ['נתוני עבירות תנועה (דוחות) אינם מפורסמים באופן פומבי', t.msg_traffic_no_data || 'Traffic violations data is not publicly available'],
+        ['מידע על דוחות וקנסות זמין רק באמצעות', t.msg_fines_available_via || 'Fines and reports info available via'],
+        ['אתר משטרת ישראל', t.msg_police_website || 'Israel Police Website'],
+        ['תשלום קנסות', t.msg_pay_fines || 'Pay Fines'],
+        ['נתונים הקשורים לתחבורה', t.msg_related_transport_data || 'Related transport data'],
+        ['תאונות דרכים → בחרו קטגוריה', t.msg_accidents_select || 'Traffic accidents → select category'],
+        ['סטטיסטיקת פשיעה → בחרו קטגוריה', t.msg_crimes_select || 'Crime statistics → select category'],
+
+        // Section headers (English from MCP)
+        ['Available Datasets', t.msg_available_datasets || 'Available Datasets'],
+        ['Searchable Resources', t.msg_searchable_resources || 'Searchable Resources'],
+        ['Next Steps', t.msg_next_steps || 'Next Steps'],
+        ['Individual case data is not publicly available', t.msg_no_public_data || 'Individual case data is not publicly available'],
+        ['Sample Data', t.msg_sample_data || 'Sample Data'],
+
+        // Hebrew equivalents
+        ['מאגרי מידע זמינים', t.msg_available_datasets || 'Available Datasets'],
+        ['משאבים זמינים לחיפוש', t.msg_searchable_resources || 'Searchable Resources'],
+        ['צעדים הבאים', t.msg_next_steps || 'Next Steps'],
+        ['נתונים אישיים אינם זמינים לציבור', t.msg_no_public_data || 'Individual case data is not publicly available'],
+
+        // Common labels
+        ['Israel Police Data', t.msg_police_data || 'Israel Police Data'],
+        ['סטטיסטיקת פשיעה', t.msg_crime_stats || 'Crime Statistics'],
+        ['עבירות תנועה', t.msg_traffic_violations || 'Traffic Violations'],
+        ['תאונות דרכים', t.msg_traffic_accidents || 'Traffic Accidents'],
+    ];
+
+    let result = text;
+    replacements.forEach(([from, to]) => {
+        if (to) result = result.replace(new RegExp(from, 'g'), to);
+    });
+
+    return result;
+}
+
+// Improved Renderer
+function displayMarkdownResult(text) {
+    const container = document.getElementById('markdown-result');
+    container.innerHTML = '';
+
+    if (!text) return; // Guard clause
+
+    // Localize system messages first
+    text = localizeSystemText(text);
+
+    // Naive Markdown to HTML
+    let html = text
+        .replace(/\n/g, '<br>')
+
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+    // Handle Tables
+    if (text.includes('|')) {
+        const rows = text.split('\n').filter(row => row.trim().startsWith('|'));
+        if (rows.length > 2) {
+            let tableHtml = '<table>';
+            rows.forEach((row, i) => {
+                if (row.includes('---')) return;
+                const cells = row.split('|').filter(c => c.trim());
+                tableHtml += '<tr>';
+                cells.forEach(cell => {
+                    tableHtml += `<td>${cell.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</table>';
+            html = html.replace(/\|.*\|/g, ''); // Remove raw lines
+            html += tableHtml; // Append rendered table
+        }
+    }
+
+    // Link Parsing: [text](url) -> <a href="..." target="_blank">
+    html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color:#60a5fa; text-decoration:underline;">$1</a>');
+
+    // Enhance Resource Links with Preview Buttons
+    // Pattern: - [CSV] Name (ID: 1234)
+    const resourceRegex = /-\s+\[(.*?)\]\s+(.*?)\s+\(ID:\s+([a-zA-Z0-9-]+)\)/gi;
+    html = html.replace(resourceRegex, (match, format, name, id) => {
+        // Escape name for quotes
+        const safeName = name.replace(/'/g, "\\'");
+        // Use Direct Link (Proxy blocked by WAF)
+        const downloadUrl = `https://data.gov.il/resource/${id}/download`;
+
+        return `
+        <div class="resource-row" style="margin-left: 20px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px;">
+            <a href="${downloadUrl}" target="_blank" class="badge" 
+               style="background:#0f172a; border: 1px solid #334155; cursor:pointer; text-decoration:none; display:flex; align-items:center; gap:4px;"
+               title="Download File">
+               <span style="opacity:0.7">⬇</span> ${format}
+            </a>
+            <span style="flex:1">${name}</span>
+            <button class="btn-secondary" style="padding: 2px 8px; font-size: 11px; margin:0;" onclick="previewResource('${id}', '${safeName}')">Preview 👁️</button>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+    container.classList.remove('hidden');
+    document.getElementById('result-card').classList.remove('visible'); // Hide map card
+}
+
+// Helper functions for police/fines tabs
+function showMarkdownResult(text) {
+    displayMarkdownResult(text);
+}
+
+function hideMarkdownResult() {
+    const container = document.getElementById('markdown-result');
+    if (container) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+    }
+}
+
+// Store active category for "Back" functionality
+let activeTransportCategory = 'all';
+
+// Add CSS for Modal
+const modalStyle = document.createElement('style');
+modalStyle.textContent = `
+.preview-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 90%;
+    background: var(--bg-card);
+    z-index: 2000;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+.preview-header {
+    padding: 15px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.preview-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    color: var(--text-primary);
+}
+.preview-overlay {
+    position: fixed;
+    top: 0; 
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 1999;
+}
+`;
+document.head.appendChild(modalStyle);
+
+function closePreviewModal() {
+    const modal = document.getElementById('preview-modal');
+    const overlay = document.getElementById('preview-overlay');
+    if (modal) modal.remove();
+    if (overlay) overlay.remove();
+}
+
+// === Server-Side Search ===
+let searchDebounceTimer = null;
+let currentSearchResourceId = null;
+let currentSearchResourceName = '';
+let currentSearchTotal = 0;
+const ROWS_PER_PAGE = 100;
+
+// Helper to get translation for current language
+function getTranslation(key) {
+    const t = translations[currentLang] || translations['en'];
+    return t[key] || translations['en'][key] || key;
+}
+
+// Debounced server search
+function handleSearchInput(query) {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+
+    searchDebounceTimer = setTimeout(() => {
+        // Server-side search: reload from page 0 with query
+        previewResource(currentSearchResourceId, currentSearchResourceName, ROWS_PER_PAGE, 0, query.trim());
+    }, 500);
+}
+
+// Go to specific page with validation
+function gotoPage() {
+    const input = document.getElementById('goto-page-input');
+    const page = parseInt(input.value);
+    const maxPage = Math.ceil(currentSearchTotal / ROWS_PER_PAGE);
+
+    // Validate page number
+    if (isNaN(page) || page < 1) {
+        alert('Введите корректный номер страницы (минимум 1)');
+        return;
+    }
+    if (page > maxPage) {
+        alert(`Страница ${page} не существует. Максимальная страница: ${maxPage}`);
+        input.value = maxPage;
+        return;
+    }
+
+    const newOffset = (page - 1) * ROWS_PER_PAGE;
+    const searchQuery = document.getElementById('dataset-search-input')?.value || '';
+    previewResource(currentSearchResourceId, currentSearchResourceName, ROWS_PER_PAGE, newOffset, searchQuery);
+}
+
+// Handle Enter key in page input
+function handlePageInputKey(event) {
+    if (event.key === 'Enter') {
+        gotoPage();
+    }
+}
+
+async function previewResource(resourceId, name = '', limit = 100, offset = 0, searchQuery = '') {
+    console.log('Preview requested for:', resourceId, name, 'search:', searchQuery);
+    showLoader(true);
+
+    // Save context for navigation
+    currentSearchResourceId = resourceId;
+    currentSearchResourceName = name;
+
+    try {
+        const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
+        const url = `/api/gov/transport?resource_id=${resourceId}&limit=${limit}&offset=${offset}${qParam}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.content && result.content[0].text) {
+            let htmlContent = result.content[0].text;
+            const meta = result._meta;
+
+            // Check if Modal exists, otherwise create
+            let modal = document.getElementById('preview-modal');
+            let overlay = document.getElementById('preview-overlay');
+
+            if (!modal) {
+                overlay = document.createElement('div');
+                overlay.id = 'preview-overlay';
+                overlay.className = 'preview-overlay';
+                overlay.onclick = closePreviewModal;
+
+                modal = document.createElement('div');
+                modal.id = 'preview-modal';
+                modal.className = 'preview-modal';
+
+                document.body.appendChild(overlay);
+                document.body.appendChild(modal);
+            }
+
+            // Header with Search & Info
+            const safeName = name || 'Dataset Preview';
+            const escapedName = safeName.replace(/'/g, "\\'");
+
+            let paginationHtml = '';
+            let countInfo = '';
+
+            if (meta) {
+                const total = meta.total;
+                currentSearchTotal = total;  // Store for page validation
+                const currentCount = meta.count;
+                const nextOffset = offset + limit;
+                const prevOffset = Math.max(0, offset - limit);
+                const currentPage = Math.floor(offset / limit) + 1;
+                const totalPages = Math.ceil(total / limit);
+
+                countInfo = `<span style="font-size:12px; opacity:0.7; margin-left:10px;">(${offset + 1}-${offset + currentCount} of ${total})</span>`;
+
+                paginationHtml = `
+                    <div style="display: flex; gap: 5px; margin-left: auto; align-items: center; flex-wrap: wrap;">
+                         <input type="text" id="dataset-search-input" placeholder="${getTranslation('ph_search_dataset')}"
+                            oninput="handleSearchInput(this.value)"
+                            value="${searchQuery || ''}"
+                            style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 180px;">
+                         
+                         <span style="opacity:0.6; font-size:11px;">|</span>
+                         
+                        <button class="btn-secondary" style="margin:0" ${offset === 0 ? 'disabled' : ''} 
+                            onclick="previewResource('${resourceId}', '${escapedName}', ${limit}, ${prevOffset}, '${searchQuery}')">⬅</button>
+                        <span style="opacity:0.8; font-size:12px;">${currentPage}/${totalPages}</span>
+                        <button class="btn-secondary" style="margin:0" ${nextOffset >= total ? 'disabled' : ''} 
+                            onclick="previewResource('${resourceId}', '${escapedName}', ${limit}, ${nextOffset}, '${searchQuery}')">➡</button>
+                        
+                        <span style="opacity:0.6; font-size:11px;">|</span>
+                        
+                        <input type="number" id="goto-page-input" min="1" max="${totalPages}" 
+                            placeholder="№" 
+                            onkeydown="handlePageInputKey(event)"
+                            style="width:50px; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; text-align:center;">
+                        <button class="btn-secondary" style="margin:0; padding: 4px 8px;" onclick="gotoPage()">Go</button>
+                    </div>
+                 `;
+            } else {
+                // Non-tabular or no pagination meta
+                paginationHtml = `
+                    <div style="margin-left: auto;">
+                        <input type="text" id="dataset-search-input" placeholder="${getTranslation('ph_search_dataset')}" 
+                            oninput="handleSearchInput(this.value)"
+                            value="${searchQuery || ''}"
+                            style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white;">
+                    </div>`;
+            }
+
+            modal.innerHTML = `
+                <div class="preview-header">
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-weight:bold; font-size:16px;">${safeName}</span>
+                        <span style="font-size:11px; opacity:0.6;">ID: ${resourceId} ${countInfo}</span>
+                    </div>
+                    ${paginationHtml}
+                    <button class="btn-secondary" style="margin-left: 10px; background: #ef4444; border-color: #ef4444;" onclick="closePreviewModal()">✖</button>
+                </div>
+                <div class="preview-content" id="modal-content"></div>
+             `;
+
+            // Render Markdown Content into Modal
+            const contentContainer = modal.querySelector('#modal-content');
+            const mdHtml = renderMarkdown(htmlContent);
+
+            // Handle Table Rendering Logic Reuse
+            let finalHtml = mdHtml;
+            if (mdHtml.includes('<table>')) {
+                // Naive table styling
+                finalHtml = finalHtml.replace('<table>', '<table style="width:100%; border-collapse: collapse; font-size:13px;">');
+                finalHtml = finalHtml.replace(/<th/g, '<th style="text-align:left; padding:8px; border-bottom:1px solid #555; background:rgba(255,255,255,0.05);"');
+                finalHtml = finalHtml.replace(/<td/g, '<td style="padding:8px; border-bottom:1px solid #333;"');
+            }
+
+            contentContainer.innerHTML = finalHtml;
+
+        } else {
+            alert('Preview failed: No content');
+        }
+    } catch (e) {
+        console.error('Fetch error:', e);
+        alert('Error: ' + e.message);
+    } finally {
+        showLoader(false);
+    }
+}
+
+
+// --- API Calls ---
+
+async function callApi(url, method, body) {
+    showLoader(true);
+    try {
+        const options = {
+            method: method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        if (body) options.body = JSON.stringify(body);
+
+        const response = await fetch(url, options);
+        const result = await response.json();
+
+        if (result.content && result.content[0].text) {
+            displayMarkdownResult(result.content[0].text);
+        } else {
+            displayMarkdownResult(JSON.stringify(result, null, 2));
+        }
+    } catch (error) {
+        displayMarkdownResult(`❌ Error: ${error.message}`);
+    } finally {
+        showLoader(false);
+    }
+}
+
+function searchFinance() {
+    const symbol = document.getElementById('finance-symbol').value;
+    if (!symbol) return;
+    callApi('/api/finance/tase', 'POST', { symbol });
+}
+
+function getRates() {
+    callApi('/api/finance/rates', 'GET');
+}
+
+function getEmergencyAlerts() {
+    callApi('/api/gov/alerts', 'GET');
+}
+
+function searchCourt() {
+    const courtType = document.getElementById('court-select').value;
+    callApi('/api/judicial/court', 'POST', { courtType });
+    // Note: The backend now expects courtType to be mapped to court_type
+}
+
+// Transport Logic
+function loadTransport(category) {
+    // Highlight sub-tab
+    document.querySelectorAll('#cat-transport .tab-link').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick')?.includes(`'${category}'`)) btn.classList.add('active');
+    });
+
+    callApi(`/api/gov/transport?category=${category}`, 'GET');
+}
+
+
+function showLoader(show) {
+    document.getElementById('loader').style.display = show ? 'block' : 'none';
+    const card = document.getElementById('result-card');
+    if (show) card.classList.remove('visible');
+}
+
+function updateResultCard(data) {
+    const card = document.getElementById('result-card');
+
+    document.getElementById('res-query').textContent = data.query || '-';
+    document.getElementById('res-address').textContent = data.address || data.name || '-';
+
+    // WGS84
+    document.getElementById('res-lat').textContent = data.coordinates?.lat ? `LAT: ${data.coordinates.lat.toFixed(5)}` : 'LAT: -';
+    document.getElementById('res-lon').textContent = data.coordinates?.lon ? `LON: ${data.coordinates.lon.toFixed(5)}` : 'LON: -';
+
+    // ITM
+    document.getElementById('res-x').textContent = data.coordinates?.x ? `X: ${data.coordinates.x.toFixed(2)}` : 'X: -';
+    document.getElementById('res-y').textContent = data.coordinates?.y ? `Y: ${data.coordinates.y.toFixed(2)}` : 'Y: -';
+
+    // Extra data
+    const extraContainer = document.getElementById('extra-data');
+    extraContainer.innerHTML = '';
+
+    if (data.type === 'parcel' || (data.municipality || data.district)) {
+        if (data.municipality) {
+            extraContainer.innerHTML += `
+                <div class="result-item">
+                    <span class="result-label">MUNICIPALITY</span>
+                    <div class="result-value">${data.municipality}</div>
+                </div>`;
+        }
+        if (data.district) {
+            extraContainer.innerHTML += `
+                <div class="result-item">
+                    <span class="result-label">DISTRICT</span>
+                    <div class="result-value">${data.district}</div>
+                </div>`;
+        }
+    }
+
+    card.classList.add('visible');
+}
+
+function updateMap(coordinates) {
+    if (currentMarker) map.removeLayer(currentMarker);
+
+    if (coordinates && coordinates.lat && coordinates.lon) {
+        const lat = parseFloat(coordinates.lat);
+        const lon = parseFloat(coordinates.lon);
+
+        currentMarker = L.marker([lat, lon]).addTo(map);
+        map.flyTo([lat, lon], 17, {
+            duration: 1.5
+        });
+
+        currentMarker.bindPopup("<b>Found Location</b><br>" + (coordinates.system || '')).openPopup();
+    }
+}
+
+async function searchAddress() {
+    const address = document.getElementById('address-input').value;
+    if (!address) return;
+
+    showLoader(true);
+
+    try {
+        const response = await fetch('/api/geocode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address })
+        });
+
+        const result = await response.json();
+
+        // Parse tool output (Markdown)
+        console.log("Raw result:", result);
+        const text = result.content[0].text;
+
+        if (text.includes("Error") || text.includes("No Results")) {
+            alert('Address not found');
+            return;
+        }
+
+        const latMatch = text.match(/Latitude:\*\* ([\d.]+)/);
+        const lonMatch = text.match(/Longitude:\*\* ([\d.]+)/);
+        const xMatch = text.match(/X \(ITM\):\*\* ([\d.]+)/);
+        const yMatch = text.match(/Y \(ITM\):\*\* ([\d.]+)/);
+
+        const coordinates = {
+            lat: latMatch ? parseFloat(latMatch[1]) : null,
+            lon: lonMatch ? parseFloat(lonMatch[1]) : null,
+            x: xMatch ? parseFloat(xMatch[1]) : null,
+            y: yMatch ? parseFloat(yMatch[1]) : null
+        };
+
+        updateResultCard({
+            query: address,
+            address: address, // In a real app we'd parse the found address from markdown too
+            coordinates: coordinates
+        });
+
+        updateMap(coordinates);
+
+    } catch (error) {
+        console.error(error);
+        alert('Search failed');
+    } finally {
+        showLoader(false);
+    }
+}
+
+async function searchCadastral() {
+    const gush = document.getElementById('gush-input').value;
+    const helka = document.getElementById('helka-input').value;
+
+    if (!gush) return;
+
+    showLoader(true);
+
+    try {
+        const response = await fetch('/api/cadastral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gush, helka })
+        });
+
+        const result = await response.json();
+        const text = result.content[0].text;
+
+        if (text.includes("Error") || text.includes("Not Found")) {
+            // Extract error message if possible
+            const match = text.match(/Error:\*\*\s*(.+)/) || text.match(/Not Found:\*\*\s*(.+)/);
+            const msg = match ? match[1] : text;
+            alert('Parcel Search Error:\n' + msg);
+            return;
+        }
+
+        const latMatch = text.match(/Latitude:\*\* ([\d.]+)/);
+        const lonMatch = text.match(/Longitude:\*\* ([\d.]+)/);
+        const municipalMatch = text.match(/Municipality:\*\* ([^\n]+)/);
+        const districtMatch = text.match(/District:\*\* ([^\n]+)/);
+
+        const coordinates = {
+            lat: latMatch ? parseFloat(latMatch[1]) : null,
+            lon: lonMatch ? parseFloat(lonMatch[1]) : null
+        };
+
+        updateResultCard({
+            query: `Gush ${gush} Helka ${helka}`,
+            name: `Parcel ${gush}/${helka || '-'}`,
+            coordinates: coordinates,
+            municipality: municipalMatch ? municipalMatch[1] : null,
+            district: districtMatch ? districtMatch[1] : null
+        });
+
+        updateMap(coordinates);
+
+    } catch (error) {
+        console.error(error);
+        alert('Search failed');
+    } finally {
+        showLoader(false);
+    }
+}
+
+
+// Map Click Handler
+map.on('click', function (e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    L.popup()
+        .setLatLng(e.latlng)
+        .setContent(`<div style="text-align:center;"><strong>Selected Location</strong><br>Lat: ${lat.toFixed(5)}<br>Lon: ${lon.toFixed(5)}<br><hr style="margin: 5px 0; opacity: 0.2"><small>Address lookup requires<br>API authentication.</small></div>`)
+        .openOn(map);
+});
+
+// ===== Legal Tab Functions =====
+
+// Switch between legal sub-tabs (courts, police, fines)
+function switchLegalTab(tabName) {
+    const tabs = ['courts', 'police', 'fines'];
+    const container = document.getElementById('cat-judicial');
+
+    // Hide all sub-tabs
+    tabs.forEach(t => {
+        const el = document.getElementById(`legal-${t}`);
+        if (el) el.classList.add('hidden');
+    });
+
+    // Show selected tab
+    const selected = document.getElementById(`legal-${tabName}`);
+    if (selected) selected.classList.remove('hidden');
+
+    // Update tab link states
+    const tabLinks = container.querySelectorAll('.sub-tabs .tab-link');
+    tabLinks.forEach((link, i) => {
+        if (tabs[i] === tabName) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+}
+
+// Get police statistics
+async function getPoliceStats() {
+    const category = document.getElementById('police-category').value;
+
+    showLoader(true);
+    hideMarkdownResult();
+
+    try {
+        // Add 15 second timeout (server has 10s timeout)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch('/api/judicial/police', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const result = await response.json();
+
+        if (result.content) {
+            showMarkdownResult(result.content);
+        } else if (result.error) {
+            alert(`Error: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Police stats error:', error);
+        // Fallback: show error message
+        showMarkdownResult([
+            '🚔 **סטטיסטיקת משטרת ישראל**',
+            '',
+            `**קטגוריה:** ${category}`,
+            '',
+            `> ⚠️ שגיאה בטעינת נתונים: ${error.name === 'AbortError' ? 'Timeout' : error.message}`,
+            '',
+            '**נסו:**',
+            '- לרענן את הדף',
+            '- לבחור קטגוריה אחרת',
+            '',
+            '**מקור נתונים:** data.gov.il'
+        ].join('\n'));
+    } finally {
+        showLoader(false);
+    }
+}
+
+// Get fines information
+async function getFinesInfo() {
+    const fineType = document.getElementById('fine-type').value;
+
+    showLoader(true);
+    hideMarkdownResult();
+
+    try {
+        // Add 15 second timeout (server has 10s timeout)  
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch('/api/judicial/fines', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fine_type: fineType }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const result = await response.json();
+
+        if (result.content) {
+            showMarkdownResult(result.content);
+        } else if (result.error) {
+            alert(`Error: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Fines info error:', error);
+        // Fallback: show helpful information directly
+        showMarkdownResult([
+            '💰 **מידע על קנסות בישראל**',
+            '',
+            `**סוג:** ${fineType === 'all' ? 'כל הסוגים' : fineType}`,
+            '',
+            '## אמצעי תשלום',
+            '',
+            '### 🚗 קנסות תעבורה (משטרה)',
+            '- **אונליין:** [gov.il](https://www.gov.il/he/service/paying_traffic_fines)',
+            '- **טלפון:** *5765',
+            '',
+            '### 🅿️ קנסות חניה (עירייה)',
+            '- **תל אביב:** [irparking.co.il](https://www.irparking.co.il)',
+            '- **ירושלים:** [jerusalem.muni.il](https://www.jerusalem.muni.il)',
+            '',
+            '### ⚖️ קנסות בית משפט',
+            '- **אונליין:** [govextra.gov.il](https://govextra.gov.il)',
+            '',
+            '## הגשת ערעור',
+            '',
+            '1. יש להגיש תוך 30 יום',
+            '2. [טופס ערעור](https://www.gov.il/he/service/appeal_traffic_report)',
+            '',
+            '---',
+            '',
+            '⚠️ לא ניתן לשלוף נתונים אישיים דרך API'
+        ].join('\n'));
+    } finally {
+        showLoader(false);
+    }
+}
+
