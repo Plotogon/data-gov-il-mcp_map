@@ -12,7 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 3002;
 
-app.use(express.static(path.join(__dirname, 'static')));
 app.use(express.json());
 
 // MCP Client setup (In-Process Mock Client for Vercel)
