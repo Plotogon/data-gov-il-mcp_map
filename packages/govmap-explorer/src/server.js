@@ -13,6 +13,7 @@ const app = express();
 const port = process.env.PORT || 3002;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
 // MCP Client setup (In-Process Mock Client for Vercel)
 // --- Vercel-Compatible Setup ---
